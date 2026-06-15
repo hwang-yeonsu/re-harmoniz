@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "re-harmoniz",
+  "owner": {
+    "name": "hwang-yeonsu",
+    "url": "https://github.com/hwang-yeonsu"
+  },
+  "metadata": {
+    "description": "re:Harmoniz — evolution loop for research wikis. Single-plugin marketplace.",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "reharm",
+      "source": "./",
+      "description": "Evolution loop for research wikis: claims harden generation by generation under mutation (revision) and natural selection (adversarial verification). Skills: reharm:root, reharm:reharmonization, reharm:modal-interchange, reharm:critique.",
+      "version": "0.2.0",
+      "author": {
+        "name": "hwang-yeonsu",
+        "url": "https://github.com/hwang-yeonsu"
+      },
+      "homepage": "https://github.com/hwang-yeonsu/re-harmoniz",
+      "repository": "https://github.com/hwang-yeonsu/re-harmoniz"
+    }
+  ]
+}

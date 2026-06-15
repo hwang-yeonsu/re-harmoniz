@@ -1,0 +1,20 @@
+{
+  "name": "reharm",
+  "version": "0.2.0",
+  "license": "MIT",
+  "description": "re:Harmoniz — an evolution loop for research wikis. Knowledge nodes (claims) harden generation by generation under mutation (revision) and natural selection (adversarial verification). Ships 4 skills: root (scaffold + atomic seeding), reharmonization (5-phase evolution session), modal-interchange (cross-scope mashup), critique (user adjudication of ambiguous nodes). Self-contained: web search uses native tools; frontier scoring and wiki lint ship as stdlib scripts.",
+  "author": {
+    "name": "hwang-yeonsu",
+    "url": "https://github.com/hwang-yeonsu"
+  },
+  "homepage": "https://github.com/hwang-yeonsu/re-harmoniz",
+  "repository": "https://github.com/hwang-yeonsu/re-harmoniz",
+  "keywords": [
+    "research-wiki",
+    "evolution-loop",
+    "knowledge-base",
+    "zettelkasten",
+    "adversarial-verification",
+    "llm-wiki"
+  ]
+}
