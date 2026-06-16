@@ -19,6 +19,7 @@ The anticipation beat — like *pushing* a note ahead of the bar, this looks at 
    - **Last session**: the newest `wiki/meta/evolution/E####.eval.json` — `pass` and `stagnation.verdict` (`continue` / `reseed` / `change-strategy`).
    - **Decay**: node frontmatter `last_challenged` vs the §3 cadence (seed/developing every session, hardened 4 weeks, evergreen 12 weeks). Scopes are small — read dates directly, no script.
    - **Unprocessed material**: `.raw/` files (recursively) with no matching `wiki/sources/` page.
+   - **Stuck at the evergreen gate**: `status: hardened` nodes whose `## Field Evidence` is empty (filter by frontmatter status, then read just those bodies). Only the §2 code workspace can produce the real-world result they need.
    - **Sibling scopes**: count sibling directories that are also scopes (for the modal-interchange signal).
 3. **Apply the cascade** — first match wins; surface lower matches as secondary candidates so the user sees the whole board:
 
@@ -28,10 +29,11 @@ The anticipation beat — like *pushing* a note ahead of the bar, this looks at 
    | 2 | `.raw/` material not yet atomized | `root` — atomize new material before evolving |
    | 3 | lint `clean:false` (contradictions, dead links, orphans, missing frontmatter) **or** `questions/` backlog **or** low-confidence nodes stalled ≥2 sessions | `critique` — clear structural/ambiguity debt before evolving |
    | 4 | positive-score frontier, **or** nodes past their §3 cadence, **or** last `eval.json` `pass:false` | `reharmonization` — Phase A resumes any failing checks |
-   | 5 | stagnation `verdict:"reseed"` (flat scores, no new seeds) | `root` — needs new raw material, not more churn |
-   | 6 | stagnation `verdict:"change-strategy"` | `critique` — rethink targets, not the same loop |
-   | 7 | ≥2 scopes and nothing above fired | `modal-interchange` — optional cross-scope mashup |
-   | 8 | nothing pending | report **current**; show the soonest next re-verification date |
+   | 5 | `status: hardened` node(s) with empty `## Field Evidence` (stuck at the evergreen gate) | **run an experiment** — in the §2 code workspace, then drop the report into `.raw/experiments/` and evolve (field evidence is the only evergreen gate, §3). Read-only: a recommendation, not an action |
+   | 6 | stagnation `verdict:"reseed"` (flat scores, no new seeds) | `root` — needs new raw material, not more churn |
+   | 7 | stagnation `verdict:"change-strategy"` | `critique` — rethink targets, not the same loop |
+   | 8 | ≥2 scopes and nothing above fired | `modal-interchange` — optional cross-scope mashup |
+   | 9 | nothing pending | report **current**; show the soonest next re-verification date |
 
 4. **Report** in the user's language: the recommended skill, the **evidence** (the specific counts / candidate pages / verdict that triggered it), the exact command to run next, and any secondary candidates. Then stop — the user runs the chosen skill.
 

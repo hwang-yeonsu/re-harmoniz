@@ -98,7 +98,7 @@ Cheap recon (`hot.md` → `index.md`) of both scopes finds a crossover: serving'
 
 **⑥ Real-world proof → `evergreen`**
 
-You finally run 8-bit Adam in your actual pipeline; at your scale (≤65B) it matches 32-bit within noise. The experiment report enters via `reharm:root`, and its conclusion is appended under the claim's `## Field Evidence` with a wikilink back. Next session that single field-evidence entry is the only gate left: `hardened → evergreen`.
+You finally run 8-bit Adam in your actual pipeline; at your scale (≤65B) it matches 32-bit within noise. The experiment report lands in the scope's `.raw/experiments/` (the field-origin convention) and gets a `sources/` summary via `reharm:root`. The next `reharm:reharmonization`'s Phase C imports its conclusion — **with the conditions it held under (≤65B)** — into the claim's `## Field Evidence`. Because those conditions match the claim's scope (narrowed to ≤65B in ④) and no open counterexample remains, that single field-evidence entry opens the last gate: `hardened → evergreen`. (Had the result held only under narrower conditions, you'd have scoped the claim down further or held evergreen back.)
 
 **What you read between sessions:** `hot.md` (what just changed), `index.md` (the maturity census — how many nodes sit at each status), and `meta/evolution/E####.md` (why each change happened) — or run `reharm:pushing` to read all three for you and name the next move (read-only).
 
@@ -132,7 +132,8 @@ A **scope** is a self-contained folder — three things make it one:
 
 ```
 Research_X/
-├── .raw/            # immutable sources (papers, clips, dumps, experiment reports)
+├── .raw/            # immutable sources (papers, clips, dumps)
+│   └── experiments/ # field-origin — the scope's own experiment/real-world results
 ├── wiki/
 │   ├── claims/      # ★ atomic assertions — the unit of evolution
 │   ├── mashups/     # ★ synthesized cross-insights

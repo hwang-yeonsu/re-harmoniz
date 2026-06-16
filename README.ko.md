@@ -98,7 +98,7 @@ Phase B가 새 노드를 표면화(높은 boundary score)하고 당신이 승인
 
 **⑥ 실세계 증명 → `evergreen`**
 
-마침내 실제 파이프라인에서 8-bit Adam을 돌립니다; 당신의 규모(≤65B)에서 32-bit와 노이즈 범위 내로 일치합니다. 실험 보고서가 `reharm:root`로 들어오고, 그 결론이 주장의 `## Field Evidence` 아래에 wikilink와 함께 덧붙습니다. 다음 세션에서 그 단 하나의 현장 근거 항목이 마지막 관문을 엽니다: `hardened → evergreen`.
+마침내 실제 파이프라인에서 8-bit Adam을 돌립니다; 당신의 규모(≤65B)에서 32-bit와 노이즈 범위 내로 일치합니다. 실험 보고서는 스코프의 `.raw/experiments/`에 안착하고(현장 출처 컨벤션) `reharm:root`로 `sources/` 요약이 생깁니다. 다음 `reharm:reharmonization`의 Phase C가 그 결론을 — **성립 조건(≤65B)과 함께** — 주장의 `## Field Evidence`로 import합니다. 그 조건이 주장의 적용 범위(④에서 ≤65B로 한정한 것)와 정합하고 미해결 반례가 없으므로, 그 단 하나의 현장 근거가 마지막 관문을 엽니다: `hardened → evergreen`. (실험이 더 좁은 조건에서만 일치했다면, 주장을 그 조건으로 더 좁히거나 evergreen을 보류했을 것입니다.)
 
 **세션 사이에 읽는 것:** `hot.md`(방금 바뀐 것), `index.md`(성숙도 통계 — 각 상태에 노드가 몇 개인지), `meta/evolution/E####.md`(왜 바뀌었는지) — 또는 `reharm:pushing`을 돌리면 이 셋을 대신 읽고 다음 수를 짚어줍니다(read-only).
 
@@ -132,7 +132,8 @@ claude plugin install reharm@re-harmoniz
 
 ```
 Research_X/
-├── .raw/            # 불변 출처 (논문, 클립, 덤프, 실험 보고서)
+├── .raw/            # 불변 출처 (논문, 클립, 덤프)
+│   └── experiments/ # 현장 출처 — 스코프 자체 실험/실세계 결과
 ├── wiki/
 │   ├── claims/      # ★ 원자적 단언 — 진화의 단위
 │   ├── mashups/     # ★ 합성된 교차 통찰

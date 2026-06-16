@@ -7,7 +7,7 @@
 ## 2. Metadata (the scope is not a code workspace)
 
 - **Code workspace path(s): `<absolute path — fill in>`**
-- Experiment lane: experiment reports produced in the workspace land in this scope's `.raw/` and re-enter through `reharm:root` (their conclusions feed `## Field Evidence`).
+- Experiment lane: experiment reports produced in the workspace land in this scope's `.raw/experiments/` (the field-origin convention) and re-enter through `reharm:root`; `reharm:reharmonization` Phase C imports their conclusions — with the conditions they held under — into the relevant claim's `## Field Evidence` (the evergreen gate). External material (papers, web, repos) lands elsewhere under `.raw/` and is treated as seed.
 
 ## 3. Protocol
 

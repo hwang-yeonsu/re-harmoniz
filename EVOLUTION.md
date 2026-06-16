@@ -14,7 +14,8 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 
 ```
 <anywhere>/Research_X/
-├── .raw/                     # immutable source documents (papers, clips, repo dumps, reports)
+├── .raw/                     # immutable source documents (papers, clips, repo dumps)
+│   └── experiments/          # field-origin reports: the scope's own experiment/real-world results (§4 Phase C)
 ├── wiki/
 │   ├── index.md              # master catalog + maturity census
 │   ├── hot.md                # hot cache (~500 words, session continuity; overwritten each time)
@@ -80,7 +81,9 @@ Declarative, present tense, objections already absorbed. No change history in th
 
 ## Field Evidence
 - Append-only. Real-world validations / counterexamples / generalizations,
-  each with a wikilink to its origin (the "import" direction).
+  each with a wikilink to its origin (the "import" direction) and the conditions
+  the result held under (dataset, scale, hardware, hyperparameters — whatever bounds it).
+  A field result without its conditions cannot be adjudicated by the §5 reproducibility lens.
 ```
 
 ---
@@ -95,7 +98,7 @@ Declarative, present tense, objections already absorbed. No change history in th
 |---|---|
 | seed → developing | ≥1 source + completed body (a declarative conclusion exists) |
 | developing → hardened | survived ≥1 adversarial verification + ≥2 **independent** sources |
-| hardened → evergreen | ≥1 entry in `## Field Evidence` (real-world feedback is the only gate) |
+| hardened → evergreen | ≥1 entry in `## Field Evidence` (real-world feedback is the only gate). If that evidence is conditional, the claim's scope must be narrowed to match those conditions, and no open counterexample may remain (§5 reproducibility lens) |
 | any → deprecated | total collapse under verification. **Never delete** — flip status so the node leaves the graph but the record stays |
 
 - Promotion is never auto-computed. Phase D **proposes** it with evidence; the evolution report records the rationale.
@@ -123,6 +126,7 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
 ### Phase C. Mutation
 Per target:
 - If new `.raw/` material exists: decompose it and recombine with existing nodes.
+- **Field-origin results** (the scope's own experiment/real-world output — by convention under `.raw/experiments/`) import into the target claim's `## Field Evidence`, carrying their conditions (§2) — not into `## Objections & Limits`. External material (papers, web, repos) is seed, as above. Ambiguous origin → confirm with the user in Phase B.
 - If new evidence or counterexamples are needed: **web search** (policy in §6).
 - Contrast / compare / integrate with adjacent nodes → create `mashups/` nodes.
 
