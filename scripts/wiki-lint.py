@@ -19,8 +19,10 @@ Checks (EVOLUTION.md §4 Phase E.3):
      meta pages do not rescue a node; frontmatter wikilinks (supports: …) do.
   4. unresolved contradictions — `> [!contradiction]` callouts in bodies or
      non-empty `contradicts:` frontmatter.
+  5. duplicate stems — two wiki/ files sharing a filename stem. Wikilinks
+     resolve by stem (§9), so a collision makes one file unreachable.
 
-`clean` = the four checks all count zero (`unresolved_external` excluded).
+`clean` = the five checks all count zero (`unresolved_external` excluded).
 
 Usage:
   wiki-lint.py            # human-readable text
@@ -298,6 +300,24 @@ def check_contradictions(node_pages: list[dict]) -> list[dict]:
     return findings
 
 
+def check_duplicate_stems() -> list[dict]:
+    """Stems owned by >1 file under wiki/. Wikilinks resolve by stem (§9) and
+    boundary-score keys pages by stem, so a shared stem makes one file
+    silently unreachable (an ambiguous link / a dropped frontier candidate)."""
+    by_stem: dict[str, list[str]] = {}
+    for md in sorted(WIKI_DIR.rglob("*.md")):
+        if md.is_symlink():
+            continue
+        by_stem.setdefault(md.stem, []).append(
+            md.relative_to(SCOPE_ROOT).as_posix()
+        )
+    return [
+        {"stem": stem, "paths": sorted(paths)}
+        for stem, paths in sorted(by_stem.items())
+        if len(paths) > 1
+    ]
+
+
 def run(want_json: bool) -> int:
     if not WIKI_DIR.is_dir():
         log(
@@ -310,6 +330,7 @@ def run(want_json: bool) -> int:
     dead, external = check_links(node_pages + collect_aux_pages())
     orphans = check_orphans(node_pages)
     contradictions = check_contradictions(node_pages)
+    duplicate_stems = check_duplicate_stems()
 
     counts = {
         "pages_checked": len(node_pages),
@@ -317,11 +338,18 @@ def run(want_json: bool) -> int:
         "dead_wikilinks": len(dead),
         "orphans": len(orphans),
         "contradictions": len(contradictions),
+        "duplicate_stems": len(duplicate_stems),
         "unresolved_external": len(external),
     }
     clean = all(
         counts[k] == 0
-        for k in ("missing_frontmatter", "dead_wikilinks", "orphans", "contradictions")
+        for k in (
+            "missing_frontmatter",
+            "dead_wikilinks",
+            "orphans",
+            "contradictions",
+            "duplicate_stems",
+        )
     )
     report = {
         "generated": datetime.now(timezone.utc)
@@ -335,6 +363,7 @@ def run(want_json: bool) -> int:
             "dead_wikilinks": dead,
             "orphans": orphans,
             "contradictions": contradictions,
+            "duplicate_stems": duplicate_stems,
             "unresolved_external": external,
         },
     }
@@ -351,6 +380,7 @@ def run(want_json: bool) -> int:
         ("dead wikilinks", dead),
         ("orphans", orphans),
         ("unresolved contradictions", contradictions),
+        ("duplicate stems", duplicate_stems),
         ("unresolved external links (verify manually)", external),
     ):
         print(f"\n## {label}: {len(items)}")

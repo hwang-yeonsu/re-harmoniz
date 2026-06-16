@@ -95,6 +95,19 @@ class BoundaryScoreTest(unittest.TestCase):
         self.assertEqual(data["page_count_scoreable"], 1)
         self.assertEqual(data["results"][0]["title_key"], "노드")
 
+    def test_protocol_aux_files_excluded(self):
+        # index/hot/log/overview are excluded by filename even when not
+        # type:meta — guards the §1-aligned EXCLUDE_FILENAMES trim.
+        today = date.today().isoformat()
+        write_node(self.scope, "wiki/claims/노드.md", title="n", updated=today)
+        for aux in ("index.md", "hot.md", "log.md", "overview.md"):
+            write_node(self.scope, f"wiki/{aux}", title=aux, updated=today)
+        proc = run_script(self.scope, "--json", "--include-score-zero")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["page_count_scoreable"], 1)
+        self.assertEqual(data["results"][0]["title_key"], "노드")
+
     def test_fails_fast_when_cwd_is_not_a_scope(self):
         proc = run_script(self.scope, "--json")
         self.assertEqual(proc.returncode, 2)

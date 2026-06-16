@@ -221,6 +221,35 @@ class WikiLintTest(unittest.TestCase):
         self.assertTrue(data["clean"])
         self.assertEqual(data["counts"]["contradictions"], 0)
 
+    def test_duplicate_stems_across_dirs(self):
+        # wikilinks resolve by stem across the whole wiki (§9), so two files
+        # sharing a stem are ambiguous — boundary-score silently drops one.
+        write(
+            self.scope,
+            "wiki/claims/중복.md",
+            node_text(title="c", body="[[다른노드]]"),
+        )
+        write(
+            self.scope,
+            "wiki/sources/중복.md",
+            node_text(ntype="source", title="s"),
+        )
+        write(
+            self.scope,
+            "wiki/claims/다른노드.md",
+            node_text(title="o", body="[[중복]]"),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        self.assertEqual(data["counts"]["duplicate_stems"], 1)
+        self.assertEqual(data["counts"]["orphans"], 0)
+        self.assertEqual(data["counts"]["dead_wikilinks"], 0)
+        finding = data["findings"]["duplicate_stems"][0]
+        self.assertEqual(finding["stem"], "중복")
+        self.assertEqual(
+            finding["paths"], ["wiki/claims/중복.md", "wiki/sources/중복.md"]
+        )
+
     def test_usage_error_without_wiki(self):
         proc = run_lint(self.scope)
         self.assertEqual(proc.returncode, 2)

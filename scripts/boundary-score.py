@@ -14,7 +14,7 @@ root), builds a wikilink graph, and emits per-page boundary scores to stdout
 boundary_score(p) = (out_degree(p) - in_degree(p)) * recency_weight(p)
 
 - out_degree(p): count of distinct wikilinks in p that resolve to a
-  scoreable page (scoreable = non-meta, non-fold, non-excluded).
+  scoreable page (scoreable = non-meta, non-excluded).
 - in_degree(p):  count of distinct scoreable pages that link to p.
 - recency_weight(p): exp(-days_since_updated / RECENCY_HALFLIFE_DAYS).
   No floor; very old pages approach zero weight, which is the intended
@@ -54,12 +54,11 @@ from pathlib import Path
 SCOPE_ROOT = Path.cwd()  # the research-scope root
 WIKI_DIR = SCOPE_ROOT / "wiki"
 
-EXCLUDE_TYPES = {"meta", "fold"}
-EXCLUDE_FILENAMES = {
-    "_index.md", "index.md", "log.md", "hot.md", "overview.md",
-    "dashboard.md", "Wiki Map.md", "getting-started.md",
-}
-EXCLUDE_PATH_PREFIXES = ("wiki/folds/", "wiki/meta/")
+# Aligned with EVOLUTION.md §1 (anatomy) and §2 (type enum). The protocol's
+# only non-evolving aux files are index/hot/log/overview and the meta/ tree.
+EXCLUDE_TYPES = {"meta"}
+EXCLUDE_FILENAMES = {"index.md", "log.md", "hot.md", "overview.md"}
+EXCLUDE_PATH_PREFIXES = ("wiki/meta/",)
 
 RECENCY_HALFLIFE_DAYS = 30.0
 # No recency floor: a truly stale page should NOT dominate the frontier
@@ -191,8 +190,9 @@ def collect_pages() -> dict[str, dict]:
     """Scan wiki/, return {title_key: {path, title, body, fm}} for scoreable pages.
 
     `title_key` is the filename stem, which is what wikilinks resolve
-    to by default. Assumes filenames are unique across the scope (enforced by
-    wiki-lint naming convention).
+    to by default. Filenames must be unique across the scope; wiki-lint's
+    `duplicate_stems` check flags violations. If two share a stem here, the
+    lexicographically-last path silently wins (last write to the dict).
     """
     pages: dict[str, dict] = {}
     if not WIKI_DIR.is_dir():
