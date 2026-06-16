@@ -4,6 +4,32 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-06-16
+
+### Added
+
+- **Experiment lane** — a `.raw/experiments/` convention that routes a scope's own
+  experiment / real-world results into the relevant claim's `## Field Evidence`.
+  `reharm:reharmonization` Phase C owns the import; external material (papers, web,
+  repos) stays seed, and ambiguous origin is confirmed in Phase B. `reharm:root` is
+  unchanged — it still summarizes any source, experiment reports included
+  (`EVOLUTION.md` §1, §4).
+- **`reharm:pushing`** now flags a `hardened` node stuck at the empty
+  `## Field Evidence` evergreen gate and recommends running an experiment — the one
+  promotion only the §2 code workspace can unblock.
+
+### Changed
+
+- **Field Evidence entries record the conditions a result held under** (dataset,
+  scale, hardware, hyperparameters), so the §5 reproducibility lens can adjudicate
+  them (`EVOLUTION.md` §2).
+- **The `hardened → evergreen` gate is now condition-aware** — conditional field
+  evidence requires the claim's scope to match those conditions with no open
+  counterexample remaining (`EVOLUTION.md` §3).
+- Protocol bumped to **v0.3** (`EVOLUTION.md` header) to reflect the §1–§4 revisions.
+- README (EN/KO): walkthrough ⑥ and the scope tree document the `.raw/experiments/`
+  convention and the condition-aware gate.
+
 ## [0.3.0] — 2026-06-16
 
 ### Added

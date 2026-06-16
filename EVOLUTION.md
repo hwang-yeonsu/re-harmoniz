@@ -1,4 +1,4 @@
-# EVOLUTION.md — The re:Harmoniz Protocol (v0.2)
+# EVOLUTION.md — The re:Harmoniz Protocol (v0.3)
 
 > This is the single source of truth for how a research wiki evolves.
 > The four skills (`reharm:root`, `reharm:reharmonization`, `reharm:modal-interchange`, `reharm:critique`) are thin entry points; this protocol is the engine.
