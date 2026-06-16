@@ -10,6 +10,16 @@ Knowledge lives as atomic **claim** nodes that harden under two pressures: **mut
 
 It's all plain Markdown you own. The entire protocol is one file: [`EVOLUTION.md`](EVOLUTION.md).
 
+## Why not just a wiki?
+
+Most knowledge tools — Zettelkasten vaults, Notion, "LLM wiki" note stores — **accumulate**: every note you add counts equally, and the pile only grows. re:Harmoniz is built for **research**, where most assertions are wrong until proven otherwise — so it does the opposite. It **grades and hardens** what you know:
+
+- **Reliability is earned, not assumed.** Every claim is pressure-tested by three adversarial refuters; only survivors gain a generation. Average reliability rises monotonically instead of drifting with the pile.
+- **Maturity is evidence-gated, not age-based.** `seed → developing → hardened → evergreen` unlocks on independent sources and real-world field evidence — not on how long a note has sat untouched.
+- **Disagreement stays on the record.** Contradictions live on *both* nodes until you adjudicate; collapsed claims are deprecated, never deleted. The wiki defends its own conclusions.
+
+That's the difference: a **research-claim evolution engine specialized for hardening what you know**, not a note store.
+
 ## The loop
 
 ```
@@ -35,6 +45,7 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 | `reharm:reharmonization` | One evolution session — the namesake skill: Retrospect → Target (you approve) → Mutate → Natural Selection (3 refuters, ≥2/3 must survive) → Record. |
 | `reharm:modal-interchange` | Cross-scope mashup — borrow knowledge from a parallel scope (like borrowing chords from a parallel mode) and mint cross-domain insights, citation-only. |
 | `reharm:critique` | Adjudication — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) and resolves it through a short interview. |
+| `reharm:pushing` | Orientation (read-only). Reads the scope's current wiki + evolution state and recommends the next move — seed, evolve, or adjudicate — with the evidence behind it. Changes nothing; you decide. |
 
 ## Usage scenarios
 
@@ -45,6 +56,8 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 **Competitive / market analysis.** Seed vendor docs, benchmarks, and field reports. Adversarial verification strips marketing claims that have no independent backing; only assertions that survive the evidence lens harden. Real usage that later confirms or breaks a claim gets appended under `## Field Evidence`.
 
 **Connecting two research tracks.** Once you have two scopes — say one on *training* and one on *serving* — `reharm:modal-interchange` finds where one side's open problem is answered by the other side's mechanism, and mints a cross-domain insight, cited back to both originals (single source of truth).
+
+**Coming back to a scope cold.** Weeks later you reopen the scope and don't remember where it stands. `reharm:pushing` reads the maturity census, the frontier scores, the open contradictions, and the last session's stagnation verdict, then names the next move — *seed new material* (`root`), *evolve a frontier node* (`reharmonization`), or *adjudicate the backlog* (`critique`) — with the evidence behind each. It's read-only: it points, you decide and run the skill.
 
 <details>
 <summary><b>A full walkthrough — one topic across all four skills</b></summary>
@@ -87,7 +100,7 @@ Cheap recon (`hot.md` → `index.md`) of both scopes finds a crossover: serving'
 
 You finally run 8-bit Adam in your actual pipeline; at your scale (≤65B) it matches 32-bit within noise. The experiment report enters via `reharm:root`, and its conclusion is appended under the claim's `## Field Evidence` with a wikilink back. Next session that single field-evidence entry is the only gate left: `hardened → evergreen`.
 
-**What you read between sessions:** `hot.md` (what just changed), `index.md` (the maturity census — how many nodes sit at each status), and `meta/evolution/E####.md` (why each change happened).
+**What you read between sessions:** `hot.md` (what just changed), `index.md` (the maturity census — how many nodes sit at each status), and `meta/evolution/E####.md` (why each change happened) — or run `reharm:pushing` to read all three for you and name the next move (read-only).
 
 </details>
 

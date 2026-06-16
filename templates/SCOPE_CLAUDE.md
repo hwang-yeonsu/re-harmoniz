@@ -13,6 +13,7 @@
 
 - This scope follows the **re:Harmoniz protocol** (`reharm` plugin, `EVOLUTION.md`): node schema, maturity state machine, 5-phase evolution sessions, report templates.
 - `.raw/` is immutable. Frequent revision of wiki nodes is encouraged.
+- Unsure what to do next here? Run `/reharm:pushing` (read-only) — it reads this scope's state and recommends the next skill (seed / evolve / adjudicate).
 
 ## 4. Adversarial Verification (applies to any research loop running in this scope)
 
