@@ -29,4 +29,4 @@ Turns any input (a source or a rough topic) into atomic knowledge nodes inside a
 
 - No verification, no promotion here — that is `reharm:reharmonization` Phase D. Every seed is born `seed`.
 - Web enrichment is allowed within EVOLUTION.md §6 bounds; skip entirely if the scope sets `Web search: disabled`.
-- Max 15 new nodes per run — overflow goes to `wiki/questions/` as candidates.
+- Max 15 new nodes per source — overflow goes to `wiki/questions/` as candidates. Process sources one at a time.

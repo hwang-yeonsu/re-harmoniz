@@ -4,6 +4,17 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] — 2026-06-17
+
+### Changed
+
+- **`reharm:root`'s new-node cap is now per source, not per run** — the limit of
+  15 new nodes applies to each source independently; overflow still lands in
+  `wiki/questions/` as candidates. The procedure was already written around a
+  single source ("Land the source"), so a per-run cap unfairly squeezed batch
+  seeding where one run ingests several sources. The skill now also states that
+  sources are processed one at a time (`skills/root/SKILL.md`).
+
 ## [0.4.1] — 2026-06-17
 
 ### Added
