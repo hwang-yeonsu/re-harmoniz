@@ -4,6 +4,17 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-06-17
+
+### Added
+
+- **Namespaced slash commands** — each skill now ships a thin `commands/<name>.md`
+  dispatcher (`/reharm:root`, `/reharm:reharmonization`, `/reharm:modal-interchange`,
+  `/reharm:critique`, `/reharm:pushing`) that reads and follows the bundled
+  `SKILL.md`. Plugin skills alone surface only as `/name (reharm)`; the wrappers add
+  the colon-namespaced `/reharm:*` invocation while the skills keep auto-triggering.
+  `plugin.json` now declares `"commands": "./commands/"`.
+
 ## [0.4.0] — 2026-06-16
 
 ### Added
