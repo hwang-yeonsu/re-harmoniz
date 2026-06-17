@@ -16,5 +16,6 @@
     "zettelkasten",
     "adversarial-verification",
     "llm-wiki"
-  ]
+  ],
+  "commands": "./commands/"
 }
