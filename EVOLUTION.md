@@ -16,6 +16,7 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 <anywhere>/Research_X/
 ├── .raw/                     # immutable source documents (papers, clips, repo dumps)
 │   └── experiments/          # field-origin reports: the scope's own experiment/real-world results (§4 Phase C)
+├── .reharm-draft/            # transient reharm:root fan-out staging (emptied after promotion; outside the lint-scanned trees)
 ├── wiki/
 │   ├── index.md              # master catalog + maturity census
 │   ├── hot.md                # hot cache (~500 words, session continuity; overwritten each time)
@@ -43,6 +44,13 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 Only `claims/` and `mashups/` evolve. `sources/` pages exist so that claims can cite evidence without re-reading `.raw/`.
 
 Rules: `.raw/` is read-only, never modified. Nodes stay 100–200 lines; split if a node covers two concepts. Update, don't duplicate.
+
+### Root multi-source handling (fan-out)
+
+When `reharm:root` seeds several sources at once, the main agent is an **orchestrator + synthesizer** that never loads a raw source body into its context. Each source is atomized by an isolated sub-agent; the main agent sees only file *paths* and the small, distilled draft claims the subs return. This is the **pollution-control invariant** — it stops one source's framing from leaking into another's claims, and it holds for a single source too (no count threshold).
+
+- **Responsibility seam.** Sub-agent (one per source, isolated): land the source (`.raw/`, incl. the single-URL fetch under §6.2/§6.3 hygiene) → `sources/<x>.md` → draft claims under `.reharm-draft/<source-stem>/`. Main agent: normalize input to a source list, merge duplicate drafts and promote to `claims/`, wire supports/contradicts edges, write the single-file globals (`index/hot/log`), and lint. The split follows write contention: `sources/` is 1:1 and each sub owns its own draft dir (no collision), so only the N:M `claims/` and the global files are main-owned.
+- **Draft staging is ephemeral and lint-invisible.** `.reharm-draft/` lives at the scope root, outside both `wiki/` and `.raw/` — the only trees `wiki-lint.py` scans — so even an aborted run's leftover drafts never count as nodes. The main agent empties it before fan-out and after promotion. This states the principle only; the detailed steps live in the `reharm:root` skill.
 
 ---
 
