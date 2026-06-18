@@ -41,7 +41,7 @@
 
 | 스킬 | 역할 |
 |---|---|
-| `reharm:root` | 진입점. 스코프를 스캐폴딩한 뒤 씨앗을 투입합니다: repo URL, 글, 의사코드, 기존 노트, 막연한 아이디어를 던지면 → `.raw/`에 안착하고 원자적 `claims/`(전부 1세대로 탄생)가 됩니다. |
+| `reharm:root` | 진입점. 스코프를 스캐폴딩한 뒤 씨앗을 투입합니다: repo URL, 글, 의사코드, 기존 노트, 막연한 아이디어를 던지면 → `.raw/`에 안착하고 원자적 `claims/`(전부 1세대로 탄생)가 됩니다. 여러 출처는 격리된 sub-agent로 fan-out(출처당 하나)되어, 한 출처의 framing이 다른 출처의 주장으로 새지 않습니다. |
 | `reharm:reharmonization` | 한 번의 진화 세션 — 프로젝트명의 유래가 된 스킬: 회고 → 표적(당신이 승인) → 변이 → 자연선택(반박자 3인, 2/3 이상 생존 필요) → 기록. |
 | `reharm:modal-interchange` | 스코프 간 매시업 — 평행 스코프에서 지식을 빌려와(평행 선법에서 코드를 빌려오듯) 도메인 교차 통찰을 발행, 인용 전용. |
 | `reharm:critique` | 판정 — 모호한 백로그(열린 질문, 정체된 노드, 모순, lint 경고)를 모아 짧은 인터뷰로 해소합니다. |
@@ -72,7 +72,7 @@ cd 01_Projects/Project_A/Research_optimizers
 /reharm:root "논문: 8-bit Optimizers via Block-wise Quantization (Dettmers et al., 2022)"
 ```
 
-repo 덤프와 논문이 `.raw/`에 안착하고 각각 `sources/` 요약이 생기며, 단언은 주장이 됩니다 — `claims/8bit-adam-matches-32bit-quality.md`, `seed · generation 1 · confidence low`로 탄생.
+repo 덤프와 논문이 `.raw/`에 안착하고 각각 `sources/` 요약이 생기며, 단언은 주장이 됩니다 — `claims/8bit-adam-matches-32bit-quality.md`, `seed · generation 1 · confidence low`로 탄생. `reharm:root` 실행은 각 출처를 **격리된 sub-agent** 안에서 원자화합니다 — 메인 세션은 raw 본문이 아니라 distilled draft claim만 봅니다 — 그래서 여러 출처를 씨앗으로 넣어도 한 쪽의 framing이 다른 쪽으로 새지 않습니다.
 
 **② 첫 진화 — `reharm:reharmonization` (`E0001.md` 작성)**
 

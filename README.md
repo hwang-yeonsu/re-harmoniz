@@ -41,7 +41,7 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 
 | Skill | What it does |
 |---|---|
-| `reharm:root` | Entry point. Scaffolds a scope, then seeds it: throw in a repo URL, article, pseudocode, an existing note, or a rough idea → it lands in `.raw/` and becomes atomic `claims/` (all born generation 1). |
+| `reharm:root` | Entry point. Scaffolds a scope, then seeds it: throw in a repo URL, article, pseudocode, an existing note, or a rough idea → it lands in `.raw/` and becomes atomic `claims/` (all born generation 1). Several sources fan out to isolated sub-agents — one per source — so no source's framing leaks into another's claims. |
 | `reharm:reharmonization` | One evolution session — the namesake skill: Retrospect → Target (you approve) → Mutate → Natural Selection (3 refuters, ≥2/3 must survive) → Record. |
 | `reharm:modal-interchange` | Cross-scope mashup — borrow knowledge from a parallel scope (like borrowing chords from a parallel mode) and mint cross-domain insights, citation-only. |
 | `reharm:critique` | Adjudication — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) and resolves it through a short interview. |
@@ -72,7 +72,7 @@ cd 01_Projects/Project_A/Research_optimizers
 /reharm:root "paper: 8-bit Optimizers via Block-wise Quantization (Dettmers et al., 2022)"
 ```
 
-The repo dump and paper land in `.raw/`, each gets a `sources/` summary, and the assertion becomes a claim — `claims/8bit-adam-matches-32bit-quality.md`, born `seed · generation 1 · confidence low`.
+The repo dump and paper land in `.raw/`, each gets a `sources/` summary, and the assertion becomes a claim — `claims/8bit-adam-matches-32bit-quality.md`, born `seed · generation 1 · confidence low`. Each `reharm:root` run atomizes its source inside an **isolated sub-agent** — the main session sees only the distilled draft claims it returns, never the raw body — so seeding several sources never lets one's framing bleed into another's.
 
 **② First evolution — `reharm:reharmonization` (writes `E0001.md`)**
 
