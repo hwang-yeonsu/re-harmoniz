@@ -41,6 +41,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`reharm:root` now lints at the end of a run** (`wiki-lint.py --json`), so the
   fan-out merge is verified to leave `duplicate_stems` / `dead_wikilinks` / `orphans`
   at zero before the skill reports done.
+- **Per-source overflow is preserved as `questions/` candidates** — assertions beyond
+  the 15-node cap are returned by each sub as `overflow_candidates` and filed under
+  `wiki/questions/` by the orchestrator, restoring 0.4.2's overflow→`questions/`
+  behavior within the fan-out architecture (the sub itself never writes canonical
+  `questions/`; the main agent owns that write).
 
 ## [0.4.2] — 2026-06-17
 

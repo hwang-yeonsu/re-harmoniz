@@ -23,7 +23,7 @@ orchestrator hands you everything as concrete values:
    - One node = one verifiable assertion. Filename = the node's primary english kebab-case alias (§9).
    - Full EVOLUTION.md §2 frontmatter with the mandatory new-node defaults: `status: seed`, `generation: 1`, `confidence: low`, `challenges_survived: 0`, `last_challenged: <today>`. Set `sources: ["[[<source-stem>]]"]`; leave `supports: []` and `contradicts: []` **empty** — you cannot see other subs' nodes, so you cannot wire real edges.
    - Body: declarative current-form conclusion (in the scope's content language) + empty `## Objections & Limits` and `## Field Evidence` skeletons.
-   - **Cap 15 nodes for this source.** Past 15, stop and report the overflow count — do **not** write to `wiki/questions/` (canonical, orchestrator-owned).
+   - **Cap 15 full nodes for this source.** Atomize the 15 highest-value assertions as draft claims. Capture any further assertions as lightweight **overflow candidates** (title + one-line conclusion + alias only — not full nodes, not files) and return them in `overflow_candidates`; do **not** write them to `wiki/questions/` yourself (canonical, orchestrator-owned) — the orchestrator files them there.
 4. **Propose edges, don't make them.** Record supports/contradicts **candidates** in the return JSON only. Do not edit any other node.
 5. **Return the JSON contract** (below). **Write nothing** outside `wiki/sources/<source-stem>.md` and `.reharm-draft/<source-stem>/`.
 
@@ -44,13 +44,15 @@ orchestrator hands you everything as concrete values:
       "contradicts_candidates": []
     }
   ],
-  "overflow": 0,
+  "overflow_candidates": [
+    { "title": "assertion that exceeded the 15-node cap", "conclusion": "one-line declarative form", "aliases": ["candidate-stem"] }
+  ],
   "status": "ok",
   "note": ""
 }
 ```
 
-- `status`: `ok` | `partial` (some assertions dropped to `overflow`) | `failed` (you could not land/atomize — explain in `note`; the orchestrator routes the source to `questions/`).
+- `status`: `ok` | `partial` (some assertions parked in `overflow_candidates`) | `failed` (you could not land/atomize — explain in `note`; the orchestrator routes the source to `questions/`).
 - `cites` and each node's `sources:` both point at the `wiki/sources/` page you wrote — so every promoted claim traces back to a source authored this run, which the orchestrator confirms after merge.
 - `supports_candidates` / `contradicts_candidates` are **proposals only**; the orchestrator confirms or creates the real edges.
 
