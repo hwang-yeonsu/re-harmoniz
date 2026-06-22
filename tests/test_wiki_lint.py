@@ -45,6 +45,28 @@ def node_text(
     return "---\n" + "\n".join(lines) + "\n---\n\n" + body + "\n"
 
 
+def experiment_text(
+    *,
+    title="exp",
+    status="planned",
+    claim="[[클레임A]]",
+    created="2026-06-12",
+    body="",
+    omit=(),
+) -> str:
+    """A §2 `type: experiment` pre-registration node (no evolution-mechanic keys)."""
+    fm = {
+        "type": "experiment",
+        "title": f'"{title}"',
+        "created": created,
+        "updated": created,
+        "status": status,
+        "claim": f'"{claim}"',
+    }
+    lines = [f"{k}: {v}" for k, v in fm.items() if k not in omit]
+    return "---\n" + "\n".join(lines) + "\n---\n\n" + body + "\n"
+
+
 def write(scope: Path, rel: str, text: str) -> Path:
     p = scope / rel
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -254,6 +276,53 @@ class WikiLintTest(unittest.TestCase):
         proc = run_lint(self.scope)
         self.assertEqual(proc.returncode, 2)
         self.assertIn("wiki", proc.stderr)
+
+    def test_experiment_node_is_valid(self):
+        # A pre-registration node (§2) carries type/title/created/status/claim and
+        # nothing else; it must lint clean and be counted as a page.
+        write(self.scope, "wiki/claims/클레임A.md", node_text(title="A", body="[[클레임B]]"))
+        write(self.scope, "wiki/claims/클레임B.md", node_text(title="B", body="[[클레임A]]"))
+        write(
+            self.scope,
+            "wiki/experiments/실험.md",
+            experiment_text(title="exp", claim="[[클레임A]]", body="## Hypothesis\nA holds."),
+        )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["pages_checked"], 3)
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+
+    def test_experiment_status_uses_experiment_enum_not_claim_enum(self):
+        # `hardened` is a valid CLAIM status but not a valid EXPERIMENT status,
+        # so status validation must branch on type (§2 experiment lifecycle).
+        write(self.scope, "wiki/claims/클레임A.md", node_text(title="A"))
+        write(
+            self.scope,
+            "wiki/experiments/실험.md",
+            experiment_text(title="exp", status="hardened", claim="[[클레임A]]"),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["path"], "wiki/experiments/실험.md")
+        self.assertEqual(finding["invalid"], {"status": "hardened"})
+        self.assertEqual(finding["missing"], [])
+
+    def test_experiment_missing_required_keys(self):
+        # Experiments require type/title/created/status/claim — not the full
+        # evolving-node key set, but more than a bare page.
+        write(
+            self.scope,
+            "wiki/experiments/실험.md",
+            experiment_text(title="exp", omit=("status", "claim")),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["path"], "wiki/experiments/실험.md")
+        self.assertEqual(finding["missing"], ["claim", "status"])
 
 
 if __name__ == "__main__":

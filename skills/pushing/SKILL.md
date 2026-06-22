@@ -29,7 +29,7 @@ The anticipation beat — like *pushing* a note ahead of the bar, this looks at 
    | 2 | `.raw/` material not yet atomized | `root` — atomize new material before evolving |
    | 3 | lint `clean:false` (contradictions, dead links, orphans, missing frontmatter) **or** `questions/` backlog **or** low-confidence nodes stalled ≥2 sessions | `critique` — clear structural/ambiguity debt before evolving |
    | 4 | positive-score frontier, **or** nodes past their §3 cadence, **or** last `eval.json` `pass:false` | `reharmonization` — Phase A resumes any failing checks |
-   | 5 | `status: hardened` node(s) with empty `## Field Evidence` (stuck at the evergreen gate) | **run an experiment** — in the §2 code workspace, then drop the report into `.raw/experiments/` and evolve (field evidence is the only evergreen gate, §3). Read-only: a recommendation, not an action |
+   | 5 | `status: hardened` node(s) with empty `## Field Evidence` (stuck at the evergreen gate) | **design the experiment** — `reharm:experiment-design` pre-registers it (hypothesis + a CONFIRM/REFUTE criterion fixed before the run, §12); the runner then executes it in the §2 code workspace and the report lands in `.raw/experiments-results/` to evolve (field evidence is the only evergreen gate, §3). If a `planned`/`running` `type: experiment` node already exists for the claim, point at its handoff instead of re-designing. Read-only: a recommendation, not an action |
    | 6 | stagnation `verdict:"reseed"` (flat scores, no new seeds) | `root` — needs new raw material, not more churn |
    | 7 | stagnation `verdict:"change-strategy"` | `critique` — rethink targets, not the same loop |
    | 8 | ≥2 scopes and nothing above fired | `modal-interchange` — optional cross-scope mashup |

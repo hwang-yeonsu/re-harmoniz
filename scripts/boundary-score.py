@@ -56,7 +56,9 @@ WIKI_DIR = SCOPE_ROOT / "wiki"
 
 # Aligned with EVOLUTION.md §1 (anatomy) and §2 (type enum). The protocol's
 # only non-evolving aux files are index/hot/log/overview and the meta/ tree.
-EXCLUDE_TYPES = {"meta"}
+# `experiment` nodes (§2, §12) are pre-registration design records, not knowledge
+# nodes — excluded from the frontier graph so they never skew a claim's score.
+EXCLUDE_TYPES = {"meta", "experiment"}
 EXCLUDE_FILENAMES = {"index.md", "log.md", "hot.md", "overview.md"}
 EXCLUDE_PATH_PREFIXES = ("wiki/meta/",)
 

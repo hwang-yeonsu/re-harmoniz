@@ -95,6 +95,24 @@ class BoundaryScoreTest(unittest.TestCase):
         self.assertEqual(data["page_count_scoreable"], 1)
         self.assertEqual(data["results"][0]["title_key"], "노드")
 
+    def test_experiment_pages_are_not_scoreable(self):
+        # Experiment pre-registrations (§2) are design records, not knowledge
+        # nodes — they must be excluded from frontier scoring like type:meta.
+        today = date.today().isoformat()
+        write_node(self.scope, "wiki/claims/노드.md", title="노드", updated=today)
+        write_node(
+            self.scope,
+            "wiki/experiments/실험.md",
+            title="실험",
+            updated=today,
+            ntype="experiment",
+        )
+        proc = run_script(self.scope, "--json", "--include-score-zero")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["page_count_scoreable"], 1)
+        self.assertEqual(data["results"][0]["title_key"], "노드")
+
     def test_protocol_aux_files_excluded(self):
         # index/hot/log/overview are excluded by filename even when not
         # type:meta — guards the §1-aligned EXCLUDE_FILENAMES trim.

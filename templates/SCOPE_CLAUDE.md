@@ -7,7 +7,7 @@
 ## 2. Metadata (the scope is not a code workspace)
 
 - **Code workspace path(s): `<absolute path — fill in>`**
-- Experiment lane: experiment reports produced in the workspace land in this scope's `.raw/experiments/` (the field-origin convention) and re-enter through `reharm:root`; `reharm:reharmonization` Phase C imports their conclusions — with the conditions they held under — into the relevant claim's `## Field Evidence` (the evergreen gate). External material (papers, web, repos) lands elsewhere under `.raw/` and is treated as seed.
+- Experiment lane: experiment reports produced in the workspace land in this scope's `.raw/experiments-results/` (the field-origin convention) and re-enter through `reharm:root`; `reharm:reharmonization` Phase C imports their conclusions — with the conditions they held under — into the relevant claim's `## Field Evidence` (the evergreen gate). External material (papers, web, repos) lands elsewhere under `.raw/` and is treated as seed.
 
 ## 3. Protocol
 
@@ -31,4 +31,5 @@
 
 - Web search: enabled <!-- or: disabled -->
 - Source policy: prefer peer-reviewed / official docs / primary sources; do not cite social media, forums, or undated pages as high-confidence <!-- edit per domain; scopes the §6 evidence lens -->
+- Experiment runner (optional): `<external runner entry point, e.g. /autoresearch:plan>` — the field-experiment designer hands off here (EVOLUTION.md §12). Leave blank to decide per experiment.
 - <YYYY-MM-DD>: scope created. Nodes: 0.

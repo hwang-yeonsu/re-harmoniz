@@ -46,6 +46,7 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 | `reharm:modal-interchange` | Cross-scope mashup — borrow knowledge from a parallel scope (like borrowing chords from a parallel mode) and mint cross-domain insights, citation-only. |
 | `reharm:critique` | Adjudication — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) and resolves it through a short interview. |
 | `reharm:pushing` | Orientation (read-only). Reads the scope's current wiki + evolution state and recommends the next move — seed, evolve, or adjudicate — with the evidence behind it. Changes nothing; you decide. |
+| `reharm:experiment-design` | Field-experiment designer. For a claim stuck at the `hardened → evergreen` gate, it **pre-registers** the experiment that would confirm or refute it — hypothesis, a CONFIRM/REFUTE criterion fixed before the run, the conditions to record — then hands a plain-language goal to an external runner (e.g. `autoresearch`). Designs and records only; never runs code. |
 
 ## Usage scenarios
 
@@ -60,7 +61,7 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 **Coming back to a scope cold.** Weeks later you reopen the scope and don't remember where it stands. `reharm:pushing` reads the maturity census, the frontier scores, the open contradictions, and the last session's stagnation verdict, then names the next move — *seed new material* (`root`), *evolve a frontier node* (`reharmonization`), or *adjudicate the backlog* (`critique`) — with the evidence behind each. It's read-only: it points, you decide and run the skill.
 
 <details>
-<summary><b>A full walkthrough — one topic across all four skills</b></summary>
+<summary><b>A full walkthrough — one topic across all six skills</b></summary>
 
 The scope is `Research_optimizers` (training-time optimization for your ML pipeline); a parallel scope, `Research_serving`, already exists for inference. **The question:** *can 8-bit Adam (bitsandbytes) replace 32-bit Adam without hurting final model quality?*
 
@@ -98,7 +99,7 @@ Cheap recon (`hot.md` → `index.md`) of both scopes finds a crossover: serving'
 
 **⑥ Real-world proof → `evergreen`**
 
-You finally run 8-bit Adam in your actual pipeline; at your scale (≤65B) it matches 32-bit within noise. The experiment report lands in the scope's `.raw/experiments/` (the field-origin convention) and gets a `sources/` summary via `reharm:root`. The next `reharm:reharmonization`'s Phase C imports its conclusion — **with the conditions it held under (≤65B)** — into the claim's `## Field Evidence`. Because those conditions match the claim's scope (narrowed to ≤65B in ④) and no open counterexample remains, that single field-evidence entry opens the last gate: `hardened → evergreen`. (Had the result held only under narrower conditions, you'd have scoped the claim down further or held evergreen back.)
+Before the run you **pre-register** the experiment with `reharm:experiment-design` — it fixes the CONFIRM/REFUTE criterion in advance (CONFIRM if the eval-loss gap stays < tolerance at ≤65B), so the result can't be rationalized after the fact, and hands the goal to an external runner. You finally run 8-bit Adam in your actual pipeline; at your scale (≤65B) it matches 32-bit within noise. The experiment report lands in the scope's `.raw/experiments-results/` (the field-origin convention) and gets a `sources/` summary via `reharm:root`. The next `reharm:reharmonization`'s Phase C imports its conclusion — **with the conditions it held under (≤65B)** — into the claim's `## Field Evidence`. Because those conditions match the claim's scope (narrowed to ≤65B in ④) and no open counterexample remains, that single field-evidence entry opens the last gate: `hardened → evergreen`. (Had the result held only under narrower conditions, you'd have scoped the claim down further or held evergreen back.)
 
 **What you read between sessions:** `hot.md` (what just changed), `index.md` (the maturity census — how many nodes sit at each status), and `meta/evolution/E####.md` (why each change happened) — or run `reharm:pushing` to read all three for you and name the next move (read-only).
 
@@ -133,12 +134,13 @@ A **scope** is a self-contained folder — three things make it one:
 ```
 Research_X/
 ├── .raw/            # immutable sources (papers, clips, dumps)
-│   └── experiments/ # field-origin — the scope's own experiment/real-world results
+│   └── experiments-results/ # field-origin — the scope's own experiment/real-world results
 ├── wiki/
 │   ├── claims/      # ★ atomic assertions — the unit of evolution
 │   ├── mashups/     # ★ synthesized cross-insights
 │   ├── sources/     # one summary page per source
 │   ├── questions/   # open questions
+│   ├── experiments/ # ★ field-experiment pre-registrations (design records)
 │   ├── meta/evolution/  # session reports E0001.md…
 │   └── index.md · hot.md · log.md · overview.md
 └── CLAUDE.md        # scope config (templates/SCOPE_CLAUDE.md)

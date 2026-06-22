@@ -44,7 +44,7 @@ SCOPE_ROOT = Path.cwd()
 WIKI_DIR = SCOPE_ROOT / "wiki"
 RAW_DIR = SCOPE_ROOT / ".raw"
 
-NODE_DIRS = ("claims", "mashups", "sources", "questions")
+NODE_DIRS = ("claims", "mashups", "sources", "questions", "experiments")
 EVOLVING_DIRS = ("claims", "mashups")
 REQUIRED_NODE_KEYS = (
     "type",
@@ -58,11 +58,19 @@ REQUIRED_NODE_KEYS = (
     "challenges_survived",
 )
 REQUIRED_PAGE_KEYS = ("type", "title")
+# Experiment pre-registrations (§2, §12) are design records: page-level keys plus
+# the link to the claim they serve and their own lifecycle status — and explicitly
+# NONE of the evolution mechanics (generation/confidence/last_challenged/
+# challenges_survived), which is why they are not in EVOLVING_DIRS.
+REQUIRED_EXPERIMENT_KEYS = ("type", "title", "created", "status", "claim")
 VALID_ENUMS = {
-    "type": {"claim", "mashup", "source", "question", "meta"},
+    "type": {"claim", "mashup", "source", "question", "meta", "experiment"},
     "status": {"seed", "developing", "hardened", "evergreen", "deprecated"},
     "confidence": {"high", "medium", "low"},
 }
+# `status` is type-dependent: experiment nodes use their own lifecycle, never the
+# maturity ladder (§3). check_frontmatter swaps this set in when type == experiment.
+EXPERIMENT_STATUSES = {"planned", "running", "imported", "abandoned"}
 DATE_KEYS = ("created", "updated", "last_challenged")
 INT_KEYS = ("generation", "challenges_survived")
 
@@ -206,13 +214,19 @@ def collect_aux_pages() -> list[dict]:
 def check_frontmatter(pages: list[dict]) -> list[dict]:
     findings = []
     for page in pages:
-        required = (
-            REQUIRED_NODE_KEYS if page["kind"] in EVOLVING_DIRS else REQUIRED_PAGE_KEYS
-        )
+        if page["kind"] in EVOLVING_DIRS:
+            required = REQUIRED_NODE_KEYS
+        elif page["kind"] == "experiments":
+            required = REQUIRED_EXPERIMENT_KEYS
+        else:
+            required = REQUIRED_PAGE_KEYS
         fm = page["fm"] or {}
+        node_type = fm.get("type")
         missing = sorted(k for k in required if k not in fm)
         invalid: dict = {}
         for key, allowed in VALID_ENUMS.items():
+            if key == "status" and node_type == "experiment":
+                allowed = EXPERIMENT_STATUSES
             val = fm.get(key)
             if isinstance(val, str) and val not in allowed:
                 invalid[key] = val

@@ -15,7 +15,7 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 ```
 <anywhere>/Research_X/
 ├── .raw/                     # immutable source documents (papers, clips, repo dumps)
-│   └── experiments/          # field-origin reports: the scope's own experiment/real-world results (§4 Phase C)
+│   └── experiments-results/  # field-origin reports: the scope's own experiment/real-world results (§4 Phase C)
 ├── .reharm-draft/            # transient reharm:root fan-out staging (emptied after promotion; outside the lint-scanned trees)
 ├── wiki/
 │   ├── index.md              # master catalog + maturity census
@@ -26,6 +26,7 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 │   ├── claims/               # ★ atomic knowledge nodes — the unit of evolution
 │   ├── mashups/              # ★ synthesized insights (contrast / comparison / integration)
 │   ├── questions/            # open questions, pending objections
+│   ├── experiments/          # field-experiment pre-registrations (design records; never evolve — §2, §12)
 │   └── meta/
 │       ├── evolution/        # evolution session reports (E0001.md, E0002.md …)
 │       └── lint/             # lint reports
@@ -94,6 +95,42 @@ Declarative, present tense, objections already absorbed. No change history in th
   A field result without its conditions cannot be adjudicated by the §5 reproducibility lens.
 ```
 
+### Experiment node (field-experiment pre-registration)
+
+A separate node kind, kept in `wiki/experiments/`. It is a **design record**, not a knowledge node: it does **not** evolve, never gains a `generation`, and is excluded from frontier scoring. It exists to pre-register — *before* the run — what result would confirm or refute a claim, so the imported field evidence (§4 Phase C) is judged against a criterion fixed in advance, not chosen post-hoc. The full procedure lives in the experiment-design skill and the bridge in §12.
+
+```yaml
+---
+type: experiment
+title: "What this experiment puts under test, declarative"
+created: 2026-06-19
+updated: 2026-06-19
+status: planned                 # planned | running | imported | abandoned
+claim: "[[target-claim]]"       # the single claim this experiment serves
+runner: "/autoresearch:plan"    # optional: external bridge entry point (tool-agnostic, §12)
+---
+
+## Hypothesis
+The target claim restated as the proposition under test.
+
+## Confirm / Refute             <!-- §5 reproducibility lens, pre-registered -->
+- CONFIRM if: <observable / numeric criterion fixed before the run>
+- REFUTE if:  <failure condition or counterexample fixed before the run>
+
+## Conditions to record         <!-- §2 Field Evidence requirement -->
+- dataset / scale / hardware / hyperparameters the result must hold under and report.
+
+## For the runner               <!-- input to the external operationalize step (§12) -->
+- goal: "<plain-language objective>"
+- shape: confirmatory | exploratory | debug
+- result_sink: .raw/experiments-results/
+
+## Handoff
+- the exact next command, run by the user in the code workspace (never here).
+```
+
+**Mandatory keys:** `type: experiment`, `title`, `created`, `status`, `claim`. The four evolution-mechanic keys (`confidence`, `generation`, `last_challenged`, `challenges_survived`) are **omitted by design** — an experiment node is not graded, only its imported *result* is (against the pre-registered criterion). `status` uses the experiment lifecycle, never the maturity ladder.
+
 ---
 
 ## 3. Maturity State Machine
@@ -111,6 +148,7 @@ Declarative, present tense, objections already absorbed. No change history in th
 
 - Promotion is never auto-computed. Phase D **proposes** it with evidence; the evolution report records the rationale.
 - Re-verification cadence (the decay curve is a *re-verification trigger*, never an auto-editor): seed/developing **every session**, hardened **4 weeks**, evergreen **12 weeks**.
+- **Experiment nodes sit outside this ladder** — they have their own lifecycle (`planned → running → imported | abandoned`, §2) and never gain a generation. Their only tie to maturity is the `hardened → evergreen` gate: a `type: experiment` pre-registration fixes the confirm/refute criterion the §5 reproducibility lens applies to the imported result (§4 Phase C). The result — not the experiment node — is what opens (or fails to open) the gate.
 
 ---
 
@@ -134,7 +172,8 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
 ### Phase C. Mutation
 Per target:
 - If new `.raw/` material exists: decompose it and recombine with existing nodes.
-- **Field-origin results** (the scope's own experiment/real-world output — by convention under `.raw/experiments/`) import into the target claim's `## Field Evidence`, carrying their conditions (§2) — not into `## Objections & Limits`. External material (papers, web, repos) is seed, as above. Ambiguous origin → confirm with the user in Phase B.
+- **Field-origin results** (the scope's own experiment/real-world output — by convention under `.raw/experiments-results/`) import into the target claim's `## Field Evidence`, carrying their conditions (§2) — not into `## Objections & Limits`. External material (papers, web, repos) is seed, as above. Ambiguous origin → confirm with the user in Phase B.
+  - **If a `type: experiment` pre-registration exists for the target** (§2, §12): judge the result against its **pre-registered** `## Confirm / Refute` criterion — never a post-hoc one. CONFIRM → append to `## Field Evidence` with conditions (the evergreen gate, §3); REFUTE → the counterexample feeds Phase D's reproducibility lens (absorbed into `## Objections & Limits`, or `deprecated` on total collapse). Either way flip the experiment node to `status: imported`; a run that never produced a usable result → `status: abandoned`.
 - If new evidence or counterexamples are needed: **web search** (policy in §6).
 - Contrast / compare / integrate with adjacent nodes → create `mashups/` nodes.
 
@@ -171,6 +210,7 @@ Output (JSON): { "refuted": true|false, "reason": "...", "counter_evidence": "..
 
 3. Verdict: **pass only if ≥2 of 3 survive** (`refuted=false`). Record refutation reasons in the report; absorb valid objections into the node.
 4. Before high-stakes promotions (e.g. hardened → evergreen candidates), a deeper external research pass may be run if your setup offers one; its output report goes into `.raw/` and re-enters through `reharm:root`.
+5. The reproducibility lens may also run **prospectively**: a `type: experiment` pre-registration (§2, §12) fixes its CONFIRM/REFUTE criterion *before* a field experiment, so Phase C/D applies the same lens to the result without redefining it after the fact. Same rubric, run ahead of the evidence.
 
 ---
 
@@ -316,3 +356,23 @@ Master catalog + maturity census, always current (§8). Claims and mashups are m
 |---|---|---|---|---|---|
 | [[claim-x]] | claim | developing | 3 | medium | 2026-06-11 |
 ```
+
+---
+
+## 12. Field Experiment Bridge
+
+The `hardened → evergreen` gate (§3) is the only one that cannot be opened from inside the wiki — it needs a real-world result, and *the scope is not a code workspace* (§10). This section fixes how a stuck claim becomes a field experiment and how the result returns, without re:Harmoniz ever running code or touching the code workspace's git.
+
+Three layers, each owning one thing — and they must not bleed into each other:
+
+| Layer | Who | Owns | Does **not** |
+|---|---|---|---|
+| **DESIGN** | the experiment-design skill (in this scope) | the pre-registration node (§2): hypothesis, confirm/refute criterion, conditions to record, runner goal + shape | author code-level metric / verify commands; run anything |
+| **OPERATIONALIZE** | external runner's planner (reference: `/autoresearch:plan`) | turn the goal into a validated, dry-run-checked run config (scope globs, metric, verify command) **in the code workspace** | decide whether the claim is testable; touch the wiki |
+| **EXECUTE** | external runner (reference: `autoresearch`) | run the bounded experiment; emit a result report | adjudicate the claim; write into the wiki |
+
+- **Tool-agnostic.** The protocol fixes the *seam*, not the tool. Any runner is acceptable; `autoresearch` is the reference. The runner entry point is recorded per node as `runner:` (§2) and/or per scope in `CLAUDE.md` (§10) — never inferred.
+- **The human crosses the workspace boundary.** The design skill stops at a handoff command and never executes it; the user carries the spec into the code workspace and runs the planner there. The research scope and the code workspace are usually different directories/repos, so this hop is a deliberate boundary crossing, not a missing automation.
+- **Return path.** The runner's report lands in `.raw/experiments-results/` (the field-origin convention, §1) → `reharm:root` summarizes it into `sources/` → `reharm:reharmonization` Phase C imports it, judged against the node's pre-registered criterion (§4 Phase C), and flips the experiment node to `imported`.
+- **Testability gate.** Only empirically testable claims get an experiment. Definitional / analytical / historical claims have no runnable result; their evidence path is independent-source corroboration (§3 developing→hardened) and the §5 refuters — the design skill detects this and redirects rather than forcing a metric.
+- **`reharm:pushing` only points here.** It detects a claim stuck at the evergreen gate and recommends the design skill (read-only, §3/§4 "nothing is auto-decided"); it never authors the spec itself.

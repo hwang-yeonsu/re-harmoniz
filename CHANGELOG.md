@@ -4,6 +4,42 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-06-22
+
+### Added
+
+- **`type: experiment` node + a field-experiment designer skill** (`reharm:experiment-design`).
+  A new node kind under
+  `wiki/experiments/` that **pre-registers** the experiment which would confirm or refute a
+  claim stuck at the `hardened → evergreen` gate: hypothesis, a CONFIRM/REFUTE criterion fixed
+  *before* the run (the §5 reproducibility lens applied prospectively), the conditions to
+  record, and a plain-language goal for an external runner. The skill is the DESIGN layer of
+  the new §12 bridge — it designs and records only, never runs code and never authors
+  code-level metric/verify commands (that is the runner's planner, e.g. `autoresearch`'s
+  `/autoresearch:plan`). Invoked by the user; `reharm:pushing` only recommends it.
+- **`EVOLUTION.md` §12 — Field Experiment Bridge** — documents the DESIGN / OPERATIONALIZE /
+  EXECUTE layering, the tool-agnostic seam, the `.raw/experiments-results/` return path, and the
+  testability gate (only empirically testable claims get an experiment). The experiment node
+  schema lands in §2; §3, §4 Phase C, and §5 gain the pre-registration cross-references.
+
+### Changed
+
+- **`wiki-lint.py` validates `type: experiment` nodes** — `wiki/experiments/` is scanned,
+  `experiment` joins the type enum, experiment nodes require `type/title/created/status/claim`
+  (no evolution-mechanic keys), and `status` is validated against the experiment lifecycle
+  (`planned/running/imported/abandoned`) instead of the maturity ladder.
+- **`boundary-score.py` excludes `type: experiment`** from frontier scoring — pre-registration
+  records are design artifacts, not knowledge nodes, so they never skew a claim's score.
+- **Scope `CLAUDE.md` template** gains an optional experiment-runner toggle (§6).
+- **README (EN/KO)** document the skill, the `experiments/` directory, and a
+  pre-registration step in walkthrough ⑥.
+- **Field-origin result lane renamed** `.raw/experiments/` → `.raw/experiments-results/` —
+  disambiguates the run-result landing directory (the field-origin convention, §1/§12) from the
+  new `wiki/experiments/` pre-registration nodes, which share the `experiment` name. Updated in
+  `EVOLUTION.md`, both READMEs, the scope `CLAUDE.md` template, and the `reharm:experiment-design` /
+  `reharm:reharmonization` / `reharm:pushing` skills. The `experiment` node type and the
+  `wiki/experiments/` node directory are unchanged.
+
 ## [0.5.0] — 2026-06-18
 
 ### Added
