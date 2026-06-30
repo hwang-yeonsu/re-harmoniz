@@ -172,6 +172,19 @@ my-vault/                       # 당신의 지식 베이스 루트 (예: Obsidi
 
 이건 한 가지 예시일 뿐 — 이미 쓰고 있는 구조를 그대로 쓰세요. (스코프는 코드 작업공간이 아니므로, 각 스코프의 `CLAUDE.md`에 실제 소스코드 경로를 적어 두세요.)
 
+## 자율 모드 (opt-in)
+
+위의 모든 스킬은 **설계상 수동**입니다 — 표적도 당신이 고르고, 판정도 당신이 합니다(`EVOLUTION.md`의 "자동 결정은 없다"). 루프를 *무인(unattended)*으로 돌리고 싶을 때를 위해, 플러그인은 그 원칙을 의도적으로 내려놓는 템플릿을 함께 제공합니다: [`templates/loop.md`](templates/loop.md). 연구 프로젝트의 `.claude/loop.md`로 복사하고 `CONFIG` 블록을 채우면, 네이티브 `/loop` 명령이 **발화 때마다 한 번의 iteration**을 재실행합니다 — `reharm:pushing`이 다음 수를 고르고, 추천된 스킬이 실행되며, 메인 세션이 당신의 승인을 대행합니다.
+
+```bash
+# 연구 프로젝트 루트에서 — bare /loop은 .claude/loop.md를 읽습니다
+/loop                    # 유일한 호출 — dynamic, self-pace: MAX_ITERS를 강제하고 할 일이 없거나 정체되면 스스로 멈춤
+```
+
+이 모드는 자동 결정 금지 원칙을 깨기 때문에 **opt-in이며 플러그인 코어 바깥**에 있습니다(스킬이 아니라 프로젝트 로컬 파일). 안전장치는 계약에 내장되어 있습니다: 스코프당 lock, 스코프 *바깥*에 두는 ledger(`EVOLUTION.md` §8), 되돌릴 수 있는 `deprecate`(절대 삭제 안 함), 감사를 위한 이중 로깅(`E####.md` + ledger). 실제 실험 실행은 게이트로 막혀 있습니다 — `RUN_EXPERIMENTS=yes`이고 **또한** 스코프의 `CLAUDE.md`에 러너가 설정된 경우에만 실행되며(§12), 그렇지 않으면 설계 + handoff에서 멈춥니다.
+
+**어디서 도는가:** `/loop`은 **로컬이며 세션에 묶입니다** — 발화하려면 Claude Code 세션이 열려 있고 머신이 깨어 있어야 합니다(닫히거나 슬립 상태의 노트북에서는 돌지 않습니다). 이 템플릿은 **dynamic 전용**(맨손 `/loop`, self-paced)입니다 — 그 self-pacing이 `MAX_ITERS`를 강제하고 스스로 멈추게 하며, 맨손 `/loop`에서만 작동하니 인터벌을 주지 마세요. 고정 벽시계 일정(예: 야간)이나 노트북을 닫은 채 무인 실행하려면 Anthropic 관리 인프라에서 도는 클라우드 [Routines](https://code.claude.com/docs/en/routines.md)(`/schedule`)를 쓰세요 — `/loop`이 아닙니다. 템플릿 헤더는 간결한 계약서이고, **[자율 루프 가이드](templates/loop.guide.ko.md)**가 긴 설명(무엇·왜·검증 방법·실행 모델·정확한 명령)입니다.
+
 ## 언어
 
 당신의 노트, 주장, 보고서는 **당신의 언어**로 작성됩니다(한국어 완전 지원 — 이를 가능케 하는 검색 규칙은 `EVOLUTION.md` §9 참고). 시스템 문서(이 README, `EVOLUTION.md`, 스킬)는 영어입니다.

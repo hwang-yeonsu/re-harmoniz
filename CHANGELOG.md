@@ -4,6 +4,45 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-06-23
+
+### Added
+
+- **`templates/loop.md` — an opt-in autonomous evolution loop** that drives the existing
+  skills unattended through the native `/loop` command. Copied to a research project's
+  `.claude/loop.md`, it runs one iteration per firing: `reharm:pushing` selects the next move
+  and the recommended skill (`root` / `reharmonization` / `critique` / `modal-interchange` /
+  `experiment-design`) executes, with the main session auto-deciding the targets, verdicts, and
+  seeds the skills normally route to the user. It **deliberately overrides the protocol's
+  "nothing is auto-decided" rule** (EVOLUTION.md §3/§4) and therefore ships as a project-local
+  template, **not** as a plugin skill — the override stays out of the plugin core, and the
+  skill count is unchanged (still 6).
+- **A loop-control contract** baked into the template: it runs as a **dynamic, self-paced** bare
+  `/loop` (paced via ScheduleWakeup — enforces `MAX_ITERS` and self-terminates when idle or stagnant;
+  a fixed-interval/cron `/loop` is intentionally unsupported, since only a bare `/loop` can self-pace
+  and stop itself); a per-scope lock; a ledger kept **outside** the scope (EVOLUTION.md
+  §8 forbids in-scope state files); reversible `deprecate` (never delete); and double logging
+  (`E####.md` + ledger) for audit. Optional real experiment execution is triple-gated on
+  `RUN_EXPERIMENTS=yes` **and** a configured runner (node `runner:` or scope `CLAUDE.md` §6)
+  **and** an existing code-workspace path (§12) — otherwise it stops at DESIGN + handoff. When it does
+  run it is **fire-and-return**: the experiment is launched in the background and a later iteration polls
+  for its result (riding along with normal work; a dedicated `~240s` / `1200s+` poll only when otherwise
+  idle), so a long run never blocks the loop or holds the lock; `EXP_TIMEOUT` abandons a stuck run.
+- **`templates/loop.guide.md` + `templates/loop.guide.ko.md` (EN/KO)** — a long-form companion to the
+  loop template: what it is and why, a *native `/loop` ↔ template design* verification table, the
+  **execution model** (`/loop` is local + session-scoped — the session must stay open and the machine
+  awake to fire; a laptop-closed unattended run needs cloud Routines, not `/loop`), the safeguards, the
+  experiment gate, and the exact commands. Linked from the README "Autonomous mode" sections.
+
+### Changed
+
+- **`plugin.json` description** notes the opt-in autonomous loop template (skill set unchanged).
+- **README (EN/KO)** gain an "Autonomous mode (opt-in)" section, including a **"Where it runs"** note
+  (`/loop` is local + session-scoped — session open + machine awake; a closed laptop needs cloud
+  Routines) and a link to the new autonomous-loop guide.
+- **`templates/loop.md`** states the same execution-model limit in its invocation notes, so the
+  copied-in contract stays self-contained.
+
 ## [0.6.0] — 2026-06-22
 
 ### Added

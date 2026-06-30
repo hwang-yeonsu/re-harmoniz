@@ -172,6 +172,19 @@ my-vault/                       # your knowledge-base root (e.g. an Obsidian vau
 
 That's only an example — use whatever structure you already have. (Since a scope is not a code workspace, point each one back to its real source-code path in the scope's `CLAUDE.md`.)
 
+## Autonomous mode (opt-in)
+
+Every skill above is **manual by design** — you pick the targets, you adjudicate (`EVOLUTION.md` "nothing is auto-decided"). When you want the loop to run *unattended*, the plugin ships a template that deliberately trades that away: [`templates/loop.md`](templates/loop.md). Copy it to your research project's `.claude/loop.md`, fill in the `CONFIG` block, and the native `/loop` command re-runs **one iteration per firing** — `reharm:pushing` picks the next move, then the recommended skill executes, with the main session standing in for your approvals.
+
+```bash
+# from the research project root — bare /loop reads .claude/loop.md
+/loop                    # the only invocation — dynamic, self-paced: enforces MAX_ITERS, stops itself when idle or stagnant
+```
+
+It is **opt-in and lives outside the plugin core** (a project-local file, not a skill) precisely because it overrides the no-auto-decide rule. Safeguards are built into the contract: a per-scope lock, a ledger kept *outside* the scope (`EVOLUTION.md` §8), reversible `deprecate` (never delete), and double logging (`E####.md` + ledger) for audit. Real experiment execution stays gated — it runs only when `RUN_EXPERIMENTS=yes` **and** a runner is configured in the scope's `CLAUDE.md` (§12); otherwise it stops at design + handoff.
+
+**Where it runs:** `/loop` is **local and session-scoped** — the Claude Code session must stay open and the machine awake for it to fire (a closed/sleeping laptop will not run it). The template is **dynamic-only** (a bare `/loop`, self-paced): that self-pacing is what enforces `MAX_ITERS` and lets it stop itself, and it works only for a bare `/loop` — don't pass an interval. For a fixed wall-clock schedule (e.g. nightly) or a laptop-closed, unattended run, use cloud [Routines](https://code.claude.com/docs/en/routines.md) (`/schedule`), which execute on Anthropic-managed infrastructure — not `/loop`. The template header is the terse contract; the **[autonomous-loop guide](templates/loop.guide.md)** is the full long-form explanation (what it is, why, how it's verified, the execution model, and the exact commands).
+
 ## Language
 
 Your notes, claims, and reports are written in **your language** (Korean fully supported — see `EVOLUTION.md` §9 for the search conventions that make it work). System docs (this README, `EVOLUTION.md`, the skills) are English.
