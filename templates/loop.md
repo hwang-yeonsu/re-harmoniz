@@ -1,6 +1,7 @@
 <!-- templates/loop.md — copy to  <your research project>/.claude/loop.md  and fill in CONFIG. -->
-<!-- re:Harmoniz AUTONOMOUS evolution loop. Native /loop re-feeds this file VERBATIM each firing, -->
-<!-- so it must stay self-contained and recover its state from the LEDGER, not from chat memory. -->
+<!-- re:Harmoniz AUTONOMOUS evolution loop. Native /loop re-reads this file each firing (full text on the -->
+<!-- first fire / after an edit / post-compact, else a short reminder while the full text persists in -->
+<!-- context), so it must stay self-contained and recover its state from the LEDGER, not from chat memory. -->
 <!-- It runs the existing /reharm:* skills; it is NOT a plugin skill itself. Invocation is at the bottom. -->
 <!-- DYNAMIC-ONLY: this is the default prompt for a bare /loop (self-paced). Do NOT pass an interval — -->
 <!-- a fixed-interval /loop cannot enforce MAX_ITERS or stop itself. For wall-clock schedules use Routines. -->
@@ -39,8 +40,11 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
                             if none, file the reason in SCOPE/wiki/questions/ and treat as a no-op.
 
 ## PROCEDURE — do this exactly once per firing, then step 6
-0. LOCK   — if `<LEDGER>.lock` exists, another iteration is mid-flight → STOP("overlap").
-            Otherwise create `<LEDGER>.lock`.
+0. LOCK   — if `<LEDGER>.lock` exists, read the ISO ts written inside it: younger than ~1h → another
+            iteration is genuinely mid-flight → STOP("overlap") (do NOT record or remove it — the lock is
+            not yours). Older than ~1h → a crashed/abandoned iteration (no healthy iteration holds the lock
+            that long: it wraps ONE skill run, and experiments are fire-and-return that UNLOCK before their
+            wait) → reclaim it. Otherwise create `<LEDGER>.lock` and write the current ISO ts into it.
 1. LOAD   — read the LEDGER tail: N = number of completed iterations, plus the last decision/result.
             If MAX_ITERS ≠ inf AND N ≥ MAX_ITERS → STOP("count-reached").
 2. JUDGE  — FIRST check for an in-flight experiment: is there a `status: running` experiment node?
@@ -89,7 +93,10 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
              "ts": "<ISO 8601 timestamp>", "stop": <null|"<reason>">}
             (For an experiment "launched" line, this ts IS the launch time JUDGE reads back for EXP_TIMEOUT.)
 5. UNLOCK — remove `<LEDGER>.lock`.
-6. NEXT   — if there is NO stop reason, call ScheduleWakeup(prompt = the exact same /loop input):
+6. NEXT   — if there is NO stop reason, call ScheduleWakeup with prompt set to the literal sentinel
+            `<<loop.md-dynamic>>` — NOT "/loop" or an empty string (neither is the sentinel). The runtime
+            re-expands `<<loop.md-dynamic>>` to this file at fire time and reminds you of the same each tick.
+            Then choose the delay:
             • normal iteration (did evolution work, or no experiment running)  → delay 1200–1800s.
             • R = wait (only an experiment in flight, nothing else to do)       → poll: ~240s if the
               experiment is short/unknown (stays inside the 5-min cache window), or 1200s+ if it is
@@ -102,6 +109,11 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 ## STOP reasons (always written to ledger `stop`)
 count-reached · nothing-pending · stagnation:reseed · stagnation:change-strategy ·
 action-error · overlap · bad-scope · exec-blocked-needs-human
+
+Any stop reached AFTER this iteration took the lock (step 0) still completes RECORD (the ledger line, with
+`stop` set) and UNLOCK before ending — a stop reason only omits the step-6 ScheduleWakeup; it never skips
+releasing the lock. The one exception is `overlap` (and a pre-lock `bad-scope`): the lock belongs to another
+live iteration, so exit without recording or removing it.
 
 ## How to invoke — run from the research project root; bare /loop re-runs THIS file
 This template is DYNAMIC-ONLY. Invoke it as a bare `/loop` with NO interval:

@@ -55,7 +55,7 @@ Run exactly once per firing, in this order:
 | 03 | **ACT** | Perform **exactly one** action for `R`, auto-deciding every choice per the DECISION POLICY. |
 | 04 | **RECORD** | Append one JSONL line to the ledger. This is the loop's **only** state. |
 | 05 | **UNLOCK** | Remove `<ledger>.lock`. |
-| 06 | **NEXT ↺** | Schedule the next wakeup (ScheduleWakeup, 1200–1800 s), or **omit it to end** — that is how the run self-terminates at `MAX_ITERS` or a stop reason. |
+| 06 | **NEXT ↺** | Schedule the next wakeup (ScheduleWakeup, prompt `<<loop.md-dynamic>>`, 1200–1800 s), or **omit it to end** — that is how the run self-terminates at `MAX_ITERS` or a stop reason. |
 
 ---
 
@@ -67,8 +67,8 @@ the native `/loop` command *actually* behaves. It does — point by point:
 | What native `/loop` actually does | How `loop.md` is designed for it |
 |-----------------------------------|----------------------------------|
 | Bare `/loop` reads `.claude/loop.md`. | The template is copied to exactly that path. |
-| It re-feeds the file **verbatim every firing** — it does not rely on prior chat memory. | State is recovered from the **ledger tail** (`N` = completed iterations), not from the conversation. The file is self-contained. |
-| `dynamic` mode self-paces via a scheduled wakeup, and **omitting the wakeup ends the loop**. | Step 6 (`dynamic`): with no stop reason, re-schedule the next wakeup with the same `/loop` input; with a stop reason, omit it → end. This is how `MAX_ITERS` and stop conditions are enforced. |
+| It re-reads the file **every firing** (full text on the first fire / after an edit / post-compact, else a short reminder while the full text stays in context) — it does not rely on prior chat memory. | State is recovered from the **ledger tail** (`N` = completed iterations), not from the conversation. The file is self-contained. |
+| `dynamic` mode self-paces via a scheduled wakeup, and **omitting the wakeup ends the loop**. | Step 6 (`dynamic`): with no stop reason, re-arm the wakeup with `prompt = <<loop.md-dynamic>>` (the sentinel the runtime re-expands to this file — not the string "/loop"); with a stop reason, omit it → end. This is how `MAX_ITERS` and stop conditions are enforced. |
 | The dynamic wakeup delay is bounded (≈ 1 min – 1 h) and the prompt cache has a ~5-minute window. | The template picks **1200–1800 s** — past the cache window to keep cost sane, and it does not poll. |
 | A fixed-interval `/loop` (`/loop 6h`) fires on a clock **the prompt cannot stop**, and `.claude/loop.md` is the default prompt for **bare** `/loop` anyway. | So the template is **bare-`/loop`-only** — never pass an interval. Self-pacing (which enforces `MAX_ITERS` / `STOP_ON`) works only for a dynamic `/loop`; a fixed interval would ignore them and run until `Esc` / 7-day expiry. |
 | Two instances could run the same file at once. | Step 0 **LOCK** rejects a second concurrent run with `STOP("overlap")`. One loop per scope. |
@@ -126,7 +126,7 @@ preview; limits and the API may change. Sources:
 
 Autonomy without an undo button is reckless; the contract bakes in four:
 
-- **Per-scope lock** — `<ledger>.lock` allows only one loop per scope; a concurrent firing exits with `STOP("overlap")`.
+- **Per-scope lock** — `<ledger>.lock` (holding the iteration's start ts) allows only one loop per scope; a concurrent firing exits with `STOP("overlap")`. Every stop unlocks before ending, and a lock older than ~1h is treated as a dead iteration and reclaimed — so one crashed tick can't deadlock the scope.
 - **External ledger** — the ledger lives **outside** the scope at `<project>/.reharm-loop/`. `EVOLUTION.md` §8 forbids in-scope state files, and keeping it out also means `wiki-lint` never flags it as an orphan.
 - **Reversible deprecate** — discarding a node is a **status flip**, never a delete; the loop never raises a node's generation.
 - **Double logging** — the skill writes `E####.md` *and* the loop appends a ledger line, so an unattended run can be retraced step by step.
@@ -211,6 +211,7 @@ laptop-closed run.
 
 ## Limits & gotchas
 
+- **Feature-gated — smoke-test first.** Two things this template rides on are gated by your Claude Code build (rollout flags, not a fixed version): bare `/loop` reading `.claude/loop.md`, and the dynamic self-pacing wakeup (`ScheduleWakeup`) itself. If either is off, `/loop` ignores loop.md or runs a single tick and stops (the wakeup silently no-ops) — `MAX_ITERS` never engages. Before trusting an overnight run, do a one-tick smoke test: run `/loop`, confirm the first turn actually loads this file (CONFIG + LEDGER) **and** that it arms a next wakeup. Confirmed working on Claude Code 2.1.197.
 - **Not laptop-closed.** `/loop` needs the session open and the machine awake. See Execution model.
 - **7-day expiry** on recurring tasks; `--resume` restores unexpired ones.
 - **Bare `/loop` only — don't pass an interval.** A fixed-interval `/loop` can't stop itself (runs until `Esc` / 7-day expiry) and ignores `MAX_ITERS` / `STOP_ON`; self-pacing needs a dynamic `/loop`.

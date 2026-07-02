@@ -4,6 +4,38 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] — 2026-07-02
+
+Correctness and precision fixes to the 0.7.0 autonomous loop template, verified against the native
+`/loop` implementation (decompiled Claude Code 2.1.197). No API, skill, or behavior-shape changes.
+
+### Fixed
+
+- **`templates/loop.md` — the dynamic reschedule now names the correct sentinel.** Step 6 said to call
+  `ScheduleWakeup(prompt = the exact same /loop input)`, but a bare `/loop`'s "input" is not a sentinel:
+  the runtime re-expands a loop.md-backed loop only when the wakeup carries the literal
+  `<<loop.md-dynamic>>`. The template now passes that sentinel explicitly (the runtime also reminds the
+  model of it each tick), so self-pacing — and therefore `MAX_ITERS` / `STOP_ON` enforcement — cannot
+  silently fail on a mis-named prompt.
+- **`templates/loop.md` — the per-scope lock can no longer orphan.** Every `STOP` reached after the lock
+  is taken now completes `RECORD` (with `stop` set) and `UNLOCK` before ending — only `overlap` (another
+  live iteration's lock) exits untouched — and the lock now carries an ISO timestamp so a lock older than
+  ~1h is treated as a crashed iteration and reclaimed. Previously a stop or crash could leave
+  `<ledger>.lock` behind and deadlock every future run on that scope with `STOP("overlap")`.
+
+### Changed
+
+- **Feature-gate caveat + smoke test (`templates/loop.guide.md` / `loop.guide.ko.md`).** Bare `/loop`
+  reading `.claude/loop.md` and the dynamic `ScheduleWakeup` are behind Claude Code rollout flags; if
+  either is off, `/loop` ignores loop.md or runs a single tick and stops (the wakeup no-ops), so
+  `MAX_ITERS` never engages. The guides now say to smoke-test one tick before trusting an overnight run.
+  Confirmed working on Claude Code 2.1.197.
+- **Accurate re-feed description (`templates/loop.md` header + guide "does it run as intended" tables).**
+  "re-feeds this file verbatim each firing" → the file is re-read each firing, delivered in full on the
+  first fire / after an edit / post-compact and as a short reminder otherwise (the full text persists in
+  context). The self-contained, ledger-based recovery design is unchanged and, if anything, better
+  motivated.
+
 ## [0.7.0] — 2026-06-23
 
 ### Added
