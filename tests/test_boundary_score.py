@@ -116,6 +116,27 @@ class BoundaryScoreTest(unittest.TestCase):
         self.assertEqual(data["page_count_scoreable"], 1)
         self.assertEqual(data["results"][0]["title_key"], "노드")
 
+    def test_deliverable_pages_are_not_scoreable(self):
+        # Deliverables (§14) are non-evolving answer snapshots — like meta and
+        # experiment they must never skew the frontier graph.
+        today = date.today().isoformat()
+        write_node(self.scope, "wiki/claims/노드.md", title="노드", updated=today)
+        write_node(
+            self.scope,
+            "wiki/deliverables/답변.md",
+            title="답변",
+            updated=today,
+            ntype="deliverable",
+            body="[[노드]]",
+        )
+        proc = run_script(self.scope, "--json", "--include-score-zero")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["page_count_scoreable"], 1)
+        self.assertEqual(data["results"][0]["title_key"], "노드")
+        # and the deliverable's outbound link must not count as inbound degree
+        self.assertEqual(data["results"][0]["in_degree"], 0)
+
     def test_protocol_aux_files_excluded(self):
         # index/hot/log/overview are excluded by filename even when not
         # type:meta — guards the §1-aligned EXCLUDE_FILENAMES trim.

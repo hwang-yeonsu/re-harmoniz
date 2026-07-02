@@ -47,6 +47,7 @@
 | `reharm:critique` | 판정 — 모호한 백로그(열린 질문, 정체된 노드, 모순, lint 경고)를 모아 짧은 인터뷰로 해소합니다: 테마 묶음은 멀티셀렉트 일괄 triage(승격 / 보류 / 보관) 한 번으로, 4세션 이상 방치된 열린 질문은 자동 보관 없이 일괄 제안으로 처리합니다. |
 | `reharm:pushing` | 방향 잡기(read-only). 스코프의 현재 위키·진화 상태를 읽어 다음 수 — 씨앗 투입, 진화, 판정, 또는 막힌 근거의 딥리서치 승격 — 를 근거와 함께 추천합니다. 아무것도 바꾸지 않으며, 결정은 당신이 합니다. |
 | `reharm:experiment-design` | 현장 실험 설계자. `hardened → evergreen` 관문에 막힌 주장에 대해, 그것을 확증/반증할 실험을 **사전 등록**합니다 — 가설, 실행 전에 고정한 CONFIRM/REFUTE 기준, 기록할 조건 — 그리고 평이한 언어의 목표를 외부 러너(예: `autoresearch`)에 넘깁니다. 설계·기록만 하며, 코드는 절대 실행하지 않습니다. |
+| `reharm:ensemble` | 답변 합성 — 루프의 **출구**. 살아남은 것들을 모아 스코프의 중심 질문에 답하는 `deliverables/` 페이지 하나를 만듭니다: 하중을 받는 모든 문장이 (status · confidence · generation) 스냅샷과 함께 노드를 인용하고, 가장 약한 하중 주장이 신뢰도 하한을 정하며, 열린 단서는 기록에 남습니다. 같은 파일을 제자리 갱신하고, 노드 상태는 절대 바꾸지 않습니다. |
 
 ## 사용 시나리오
 
@@ -61,7 +62,7 @@
 **식은 스코프로 돌아왔을 때.** 몇 주 뒤 스코프를 다시 열었는데 어디까지 했는지 기억나지 않습니다. `reharm:pushing`이 성숙도 통계, frontier 점수, 열린 모순, 직전 세션의 stagnation 판정을 읽고 다음 수를 짚어줍니다 — *새 자료 씨앗 투입*(`root`), *frontier 노드 진화*(`reharmonization`), 또는 *백로그 판정*(`critique`) — 각각의 근거와 함께. read-only입니다: 가리킬 뿐, 결정과 실행은 당신이 합니다.
 
 <details>
-<summary><b>전체 워크스루 — 한 주제로 6개 스킬 전부 거치기</b></summary>
+<summary><b>전체 워크스루 — 한 주제로 7개 스킬 전부 거치기</b></summary>
 
 스코프는 `Research_optimizers`(학습 단계 최적화)이고, 추론용 평행 스코프 `Research_serving`이 이미 존재합니다. **질문:** *8-bit Adam(bitsandbytes)이 최종 모델 품질을 해치지 않고 32-bit Adam을 대체할 수 있는가?*
 
@@ -100,6 +101,10 @@ Phase B가 새 노드를 표면화(높은 boundary score)하고 당신이 승인
 **⑥ 실세계 증명 → `evergreen`**
 
 돌리기 전에 `reharm:experiment-design`으로 실험을 **사전 등록**합니다 — confirm/refute 기준(≤65B에서 eval-loss 격차가 허용치 미만이면 CONFIRM)을 미리 고정해 결과를 사후 합리화할 수 없게 하고, 목표를 외부 러너에 넘깁니다. 마침내 실제 파이프라인에서 8-bit Adam을 돌립니다; 당신의 규모(≤65B)에서 32-bit와 노이즈 범위 내로 일치합니다. 실험 보고서는 스코프의 `.raw/experiments-results/`에 안착하고(현장 출처 컨벤션) `reharm:root`로 `sources/` 요약이 생깁니다. 다음 `reharm:reharmonization`의 Phase C가 그 결론을 — **성립 조건(≤65B)과 함께** — 주장의 `## Field Evidence`로 import합니다. 그 조건이 주장의 적용 범위(④에서 ≤65B로 한정한 것)와 정합하고 미해결 반례가 없으므로, 그 단 하나의 현장 근거가 마지막 관문을 엽니다: `hardened → evergreen`. (실험이 더 좁은 조건에서만 일치했다면, 주장을 그 조건으로 더 좁히거나 evergreen을 보류했을 것입니다.)
+
+**⑦ 답변 합성 — `reharm:ensemble`**
+
+단단한 코어가 갖춰졌으니, 원래의 질문 — *8-bit Adam이 품질 손실 없이 32-bit를 대체할 수 있는가?* — 이 마침내 그에 답하는 한 페이지를 얻습니다: `deliverables/8bit-adam-answer.md`. 하중을 받는 모든 문장이 스냅샷과 함께 노드를 인용하고(`[[8bit-adam-matches-32bit-quality]] evergreen · high · g5`), 헤더의 **신뢰도 하한**은 가장 약한 하중 주장이 정하며, ④에서 열어 둔 >65B 질문은 `## Open caveats`에 그대로 남습니다. 이후 세션 뒤에 ensemble을 다시 돌리면 같은 파일이 제자리에서 재도출됩니다 — 답변이 위키를 따라가지, 그 반대가 아니며, 어떤 노드의 상태도 바뀌지 않습니다.
 
 **세션 사이에 읽는 것:** `hot.md`(방금 바뀐 것), `index.md`(성숙도 통계 — 각 상태에 노드가 몇 개인지), `meta/evolution/E####.md`(왜 바뀌었는지) — 또는 `reharm:pushing`을 돌리면 이 셋을 대신 읽고 다음 수를 짚어줍니다(read-only).
 
@@ -142,6 +147,7 @@ Research_X/
 │   ├── sources/     # 출처 1개당 요약 페이지 1개 (origin: primary|secondary + 계보)
 │   ├── questions/   # 열린 질문 — 생명주기: open → answered | escalated | archived
 │   ├── experiments/ # ★ 현장 실험 사전 등록 (설계 기록)
+│   ├── deliverables/ # 답변 합성 — 진화하지 않는 스냅샷 (reharm:ensemble)
 │   ├── meta/evolution/  # 세션 보고서 E0001.md…
 │   └── index.md · hot.md · log.md · overview.md
 └── CLAUDE.md        # 스코프 설정 (templates/SCOPE_CLAUDE.md)

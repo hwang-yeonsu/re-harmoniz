@@ -1,7 +1,7 @@
-# EVOLUTION.md — The re:Harmoniz Protocol (v0.5)
+# EVOLUTION.md — The re:Harmoniz Protocol (v0.6)
 
 > This is the single source of truth for how a research wiki evolves.
-> The four skills (`reharm:root`, `reharm:reharmonization`, `reharm:modal-interchange`, `reharm:critique`) are thin entry points; this protocol is the engine.
+> The `reharm:*` skills are thin entry points; this protocol is the engine.
 > System docs (this file, skills, README) are written in English. Scope content (notes, claims, reports) follows the user's language — Korean is expected and fully supported (§9).
 
 **Core principle.** Ideas evolve only under two pressures: **mutation** (revision) and **natural selection** (verification and culling). Every node may be revised at any time after creation — frequent revision is encouraged. Because only nodes that survive refutation gain a generation, the average reliability of the wiki rises monotonically over time.
@@ -28,6 +28,7 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 │   ├── mashups/              # ★ synthesized insights (contrast / comparison / integration)
 │   ├── questions/            # open questions, pending objections
 │   ├── experiments/          # field-experiment pre-registrations (design records; never evolve — §2, §12)
+│   ├── deliverables/         # answer syntheses — non-evolving snapshots of what survived (§2, §14)
 │   └── meta/
 │       ├── evolution/        # evolution session reports (E0001.md, E0002.md …)
 │       └── lint/             # lint reports
@@ -62,7 +63,7 @@ When `reharm:root` seeds several sources at once, the main agent is an **orchest
 
 ```yaml
 ---
-type: claim                     # claim | mashup | source | question | meta
+type: claim                     # claim | mashup | source | question | meta | experiment | deliverable
 title: "A single verifiable assertion, declarative form"
 created: 2026-06-11
 updated: 2026-06-11
@@ -162,6 +163,22 @@ status: open                    # open | answered | escalated | archived
 
 - `open` (default for new questions) → `answered` (resolved into a claim or verdict — say where) | `escalated` (handed to deep research, §13 — requires an `## Escalation` block) | `archived` (aged out via a critique verdict; a status flip, never a delete).
 - Required keys remain `type` + `title` (additive change). Legacy question pages that still carry maturity values (`status: seed`, tag conventions like `question/open`) stay **valid** — `wiki-lint.py` reports them as `legacy_question_status`, a warning, never an error. No migration required.
+
+### Deliverable node (answer synthesis)
+
+A non-evolving node kind, kept in `wiki/deliverables/` and written by `reharm:ensemble` (§14). It is a **snapshot synthesis**, not a knowledge node: it never evolves, never gains a `generation`, and is excluded from frontier scoring and the maturity census — the evolving truth stays in the claims it cites.
+
+```yaml
+---
+type: deliverable
+title: "One-line thesis of the answer"
+created: 2026-07-02
+updated: 2026-07-02
+question: "[[central-question]]"    # the question this deliverable answers — its identity key
+---
+```
+
+**Mandatory keys:** `type: deliverable`, `title`, `created`, `updated`, `question`. The evolution-mechanic keys are **omitted by design** (as with `experiment`): a deliverable is never graded — it is *re-derived* from graded nodes, update-in-place (`updated` bumps; git owns versions, §8). Body contract and confidence rule in §14.
 
 ### Source page metadata (independence)
 
@@ -412,6 +429,12 @@ Master catalog + maturity census, always current (§8). Claims and mashups are m
 | Node | Type | Status | Gen | Confidence | Updated |
 |---|---|---|---|---|---|
 | [[claim-x]] | claim | developing | 3 | medium | 2026-06-11 |
+
+## Deliverables            <!-- §14 — outside the maturity census -->
+
+| Deliverable | Question | Confidence floor | Updated |
+|---|---|---|---|
+| [[answer-x]] | [[question-y]] | medium | 2026-07-02 |
 ```
 
 ---
@@ -452,3 +475,19 @@ Three phases, on the same declared-seam pattern as §12 (tool-agnostic — the p
 - **EXECUTE — the toggle is the gate.** The entry point lives in the scope `CLAUDE.md` (`Research escalation:` — §10), same pattern as §12's `runner:`. Toggle unset → the bridge is closed and pushing never recommends it. The tool runs **outside** the session (the user carries the question across, as in §12); its report lands in `.raw/deep-research/`.
 - **RETURN — secondary by construction.** `reharm:root` atomizes the report like any source, but its `sources/` page records `origin: secondary` and `derived_from:` the primaries it digests (§2); where a primary matters, land and cite it directly. The next reharmonization session imports the material through Phase C/D, and the question flips `escalated → answered` when its claims move. **That is how §13 opens the §3 developing→hardened gate**: by delivering the independent sources the gate demands — with independence still adjudicated by the §5 evidence lens (`derived_from` overlap = non-independent), so a deep-research digest can never double-count as two sources.
 - **`reharm:pushing` only points here** (cascade, right after the §12 experiment rule): a `developing` claim with no new independent source for ≥2 sessions, or an `open` question with no progress for ≥4 sessions, while the toggle is set → recommend escalation, read-only. The autonomous loop template **skips** this recommendation entirely (manual-only v1) and falls through to the next candidate.
+
+---
+
+## 14. Deliverables — Answer Synthesis
+
+The loop hardens *claims*; a **deliverable** is the exit: one page that answers the scope's central question from what survived, written by `reharm:ensemble`. A wiki that only accumulates hardened nodes has no outlet — the central question can sit fully answered in pieces with nowhere the answer actually lives (field-evidenced: a scope reached a hardened core and simply hit a ceiling). The deliverable is that outlet, and it is deliberately **not** a knowledge node (§2 schema: `type: deliverable`, non-evolving).
+
+- **Identity = the question.** One deliverable per question (`question:` wikilink is the identity key). Re-synthesis **updates the same file in place** and bumps `updated`; versions belong to git (§8) — never a `-v2` file. Node states everywhere else are **invariant**: ensemble reads claims, it never touches them (flipping the answered question's status is a critique/reharmonization act).
+- **Body contract** — four sections, in the scope's content language:
+  - `## Answer` — the synthesis. **Every load-bearing sentence carries an inline snapshot citation**: `…conclusion… ([[node]] hardened · high · g6)`. The deliverable is point-in-time — the node keeps evolving after the sentence is written, so the sentence records what the node *was* when cited.
+  - `## Load-bearing seeds` — the seed/developing nodes the answer had to lean on despite their immaturity, each with its snapshot. The answer's soft underbelly, listed rather than hidden.
+  - `## Open caveats` — unresolved objections, contradictions, and open questions that bound the answer.
+  - `## What would change this conclusion` — the §13 discipline applied to the whole answer: the evidence or counterexample that would force a rewrite.
+- **Confidence propagates from the floor.** Directly under the H1, one header line: `**Confidence:** <floor> — floor set by the weakest load-bearing claim: [[node]] (status · confidence · gen)`. Fixed rule: the deliverable's confidence **is** the minimum confidence among its load-bearing claims — deliverable-level optimism is forbidden, and the header names the weakest link so the reader knows exactly where the answer would crack first.
+- **Non-evolving by construction**: no generation, no refuters, excluded from frontier scoring (`boundary-score.py`) and the maturity census; `wiki-lint.py` validates only the §2 keys. Listed in the §11.2 Deliverables table, outside the census.
+- **`reharm:pushing` recommends synthesis** (cascade, before the modal-interchange rule) when ≥5 nodes sit at `hardened`-or-above and the question's deliverable is **absent or stale** — stale = its `updated` predates the newest `E####.md` session (evolution happened after the answer was last derived).

@@ -18,18 +18,19 @@ Each step is three moves:
 1. **JUDGE** — `reharm:pushing` inspects the scope (frontier scores, lint health,
    maturity census, last stagnation verdict) **read-only** and names the next action.
 2. **ACT** — exactly one recommended skill runs: `root` / `reharmonization` / `critique`
-   / `modal-interchange` / `experiment-design`. The main session stands in for every
-   approval the skill would normally route to you.
+   / `modal-interchange` / `experiment-design` / `ensemble`. The main session stands in
+   for every approval the skill would normally route to you. (The one recommendation it
+   never takes: a §13 deep-research escalation — manual-only by design.)
 3. **RECORD** — one JSONL line is appended to the loop ledger.
 
-It is **not a 7th skill**. It is a project-local template that *drives* the existing six
-skills through the native `/loop` command. The plugin's skill set is unchanged.
+It is **not an extra skill**. It is a project-local template that *drives* the existing
+seven skills through the native `/loop` command. The plugin's skill set is unchanged.
 
 ---
 
 ## Why it exists
 
-re:Harmoniz's six skills are all **"nothing is auto-decided"** by design
+re:Harmoniz's seven skills are all **"nothing is auto-decided"** by design
 (`EVOLUTION.md` §3/§4): you pick the targets, you adjudicate the verdicts. That manual
 discipline is the constitution that protects knowledge quality.
 

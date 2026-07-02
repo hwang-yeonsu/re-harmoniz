@@ -60,7 +60,7 @@ SCOPE_ROOT = Path.cwd()
 WIKI_DIR = SCOPE_ROOT / "wiki"
 RAW_DIR = SCOPE_ROOT / ".raw"
 
-NODE_DIRS = ("claims", "mashups", "sources", "questions", "experiments")
+NODE_DIRS = ("claims", "mashups", "sources", "questions", "experiments", "deliverables")
 EVOLVING_DIRS = ("claims", "mashups")
 REQUIRED_NODE_KEYS = (
     "type",
@@ -79,8 +79,20 @@ REQUIRED_PAGE_KEYS = ("type", "title")
 # NONE of the evolution mechanics (generation/confidence/last_challenged/
 # challenges_survived), which is why they are not in EVOLVING_DIRS.
 REQUIRED_EXPERIMENT_KEYS = ("type", "title", "created", "status", "claim")
+# Deliverables (§14) are non-evolving answer syntheses: page keys plus the
+# question that is their identity, `updated` because they are re-derived in
+# place — and none of the evolution mechanics (they are never graded).
+REQUIRED_DELIVERABLE_KEYS = ("type", "title", "created", "updated", "question")
 VALID_ENUMS = {
-    "type": {"claim", "mashup", "source", "question", "meta", "experiment"},
+    "type": {
+        "claim",
+        "mashup",
+        "source",
+        "question",
+        "meta",
+        "experiment",
+        "deliverable",
+    },
     "status": {"seed", "developing", "hardened", "evergreen", "deprecated"},
     "confidence": {"high", "medium", "low"},
     "origin": {"primary", "secondary"},
@@ -309,6 +321,8 @@ def check_frontmatter(pages: list[dict]) -> list[dict]:
             required = REQUIRED_NODE_KEYS
         elif page["kind"] == "experiments":
             required = REQUIRED_EXPERIMENT_KEYS
+        elif page["kind"] == "deliverables":
+            required = REQUIRED_DELIVERABLE_KEYS
         else:
             required = REQUIRED_PAGE_KEYS
         fm = page["fm"] or {}

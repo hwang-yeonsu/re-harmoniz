@@ -1,8 +1,8 @@
 {
   "name": "reharm",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "license": "MIT",
-  "description": "re:Harmoniz — an evolution loop for research wikis. Knowledge nodes (claims) harden generation by generation under mutation (revision) and natural selection (adversarial verification). Ships 6 skills: root (scaffold + atomic seeding), reharmonization (5-phase evolution session), modal-interchange (cross-scope mashup), critique (user adjudication of ambiguous nodes), pushing (read-only next-step advisor), experiment-design (field-experiment pre-registration). Also ships an opt-in autonomous loop template (templates/loop.md) that drives these skills unattended via the native /loop command. Self-contained: web search uses native tools; frontier scoring and wiki lint ship as stdlib scripts.",
+  "description": "re:Harmoniz — an evolution loop for research wikis. Knowledge nodes (claims) harden generation by generation under mutation (revision) and natural selection (adversarial verification). Ships 7 skills: root (scaffold + atomic seeding), reharmonization (5-phase evolution session), modal-interchange (cross-scope mashup), critique (user adjudication of ambiguous nodes), pushing (read-only next-step advisor), experiment-design (field-experiment pre-registration), ensemble (answer synthesis into citable deliverables). Also ships an opt-in autonomous loop template (templates/loop.md) that drives these skills unattended via the native /loop command. Self-contained: web search uses native tools; frontier scoring and wiki lint ship as stdlib scripts.",
   "author": {
     "name": "hwang-yeonsu",
     "url": "https://github.com/hwang-yeonsu"

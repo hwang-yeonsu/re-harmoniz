@@ -1,11 +1,11 @@
 ---
 name: pushing
-description: "re:Harmoniz next-step advisor — read-only. Inspects the current wiki + evolution state of a scope and recommends which skill to run next (root / reharmonization / critique / modal-interchange), with the evidence that triggered it. Changes nothing and runs nothing; you decide. Triggers: reharm pushing, what next, what should I do next, where do I stand, next move, 다음 뭐 해, 다음 스텝, 뭐부터 할까, 상태 봐줘"
+description: "re:Harmoniz next-step advisor — read-only. Inspects the current wiki + evolution state of a scope and recommends which skill to run next (root / reharmonization / critique / modal-interchange / experiment-design / ensemble, or a deep-research escalation), with the evidence that triggered it. Changes nothing and runs nothing; you decide. Triggers: reharm pushing, what next, what should I do next, where do I stand, next move, 다음 뭐 해, 다음 스텝, 뭐부터 할까, 상태 봐줘"
 ---
 
 # reharm:pushing — Next-Step Advisor (read-only)
 
-The anticipation beat — like *pushing* a note ahead of the bar, this looks at where a scope stands and calls the next move before you have to ask: seed (`root`), evolve (`reharmonization`), resolve ambiguity (`critique`), or borrow across scopes (`modal-interchange`).
+The anticipation beat — like *pushing* a note ahead of the bar, this looks at where a scope stands and calls the next move before you have to ask: seed (`root`), evolve (`reharmonization`), resolve ambiguity (`critique`), design the experiment (`experiment-design`), escalate stuck evidence (§13 deep research), synthesize the answer (`ensemble`), or borrow across scopes (`modal-interchange`).
 
 **This is the only read-only skill: it inspects and recommends, never writes a file, never runs another skill.** That preserves the protocol's contract — nothing is auto-decided; you pick the targets and adjudicate (EVOLUTION.md §3, §4 Phase B). **Read `${CLAUDE_SKILL_DIR}/../../EVOLUTION.md`** for the state definitions it reads: §3 (maturity + re-verification cadence), §7 (session evaluation + stagnation).
 
@@ -22,6 +22,7 @@ The anticipation beat — like *pushing* a note ahead of the bar, this looks at 
    - **Stuck at the evergreen gate**: `status: hardened` nodes whose `## Field Evidence` is empty (filter by frontmatter status, then read just those bodies). Only the §2 code workspace can produce the real-world result they need.
    - **Stuck at the evidence gate (§13)**: `status: developing` claims with `sources_count` < 2 (from the boundary-score JSON) and no new independent source in the last 2 `E####.md` reports; plus `status: open` questions with no progress across the last 4 reports. Only signal-worthy when the scope `CLAUDE.md` sets `Research escalation:`.
    - **Borrowed drift**: mashups carrying a `borrowed:` snapshot (§2) whose donor node's **current** status/generation no longer matches it — read the donor scope's frontmatter directly (a demoted or deprecated donor means the mashup's premise moved).
+   - **Deliverable state (§14)**: `wiki/deliverables/` pages and their `updated` vs the newest `E####.md` session date; plus the hardened-or-above count from `status_census`. An answered-in-pieces scope with no (or a stale) deliverable is a synthesis backlog.
    - **Sibling scopes**: count sibling directories that are also scopes (for the modal-interchange signal).
 3. **Apply the cascade** — first match wins; surface lower matches as secondary candidates so the user sees the whole board:
 
@@ -35,8 +36,9 @@ The anticipation beat — like *pushing* a note ahead of the bar, this looks at 
    | 6 | scope `CLAUDE.md` sets `Research escalation:` **and** (a `developing` claim stuck < 2 independent sources with no new independent source for ≥2 sessions, **or** an `open` question with no progress for ≥4 sessions) | **escalate to deep research** (§13) — recommend the DESIGN step: flip the question to `status: escalated` + write its `## Escalation` block ("what would change our mind"), typically via `reharm:critique`; the user runs the external tool named by the toggle and its report returns through `.raw/deep-research/` → `reharm:root`. **Manual-only: the autonomous loop template skips this row.** Read-only: a recommendation, not an action |
    | 7 | stagnation `verdict:"reseed"` (counters flat, no new seeds/sources) | `root` — needs new raw material, not more churn |
    | 8 | stagnation `verdict:"change-strategy"` | `critique` — rethink targets, not the same loop |
-   | 9 | ≥2 scopes and nothing above fired | `modal-interchange` — optional cross-scope mashup |
-   | 10 | nothing pending | report **current**; show the soonest next re-verification date |
+   | 9 | ≥5 nodes at `hardened`-or-above (from `status_census`) **and** the central question's deliverable is absent or stale (`updated` predates the newest `E####.md` — §14) | `ensemble` — the answer exists in pieces with nowhere it lives; synthesize the deliverable |
+   | 10 | ≥2 scopes and nothing above fired | `modal-interchange` — optional cross-scope mashup |
+   | 11 | nothing pending | report **current**; show the soonest next re-verification date |
 
 4. **Report** in the user's language: the recommended skill, the **evidence** (the specific counts / candidate pages / verdict that triggered it), the exact command to run next, and any secondary candidates. Then stop — the user runs the chosen skill.
 

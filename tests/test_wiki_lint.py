@@ -737,6 +737,55 @@ class WikiLintTest(unittest.TestCase):
         self.assertEqual(data["counts"]["allowed_external"], 0)
         self.assertEqual(data["counts"]["unresolved_external"], 1)
 
+    # ---- deliverable node (0.10.0 §14: non-evolving answer synthesis) ----
+
+    def deliverable_text(self, *, question="[[중심질문]]", omit=()) -> str:
+        fm = {
+            "type": "deliverable",
+            "title": '"답변 논지"',
+            "created": "2026-07-02",
+            "updated": "2026-07-02",
+            "question": f'"{question}"',
+        }
+        lines = [f"{k}: {v}" for k, v in fm.items() if k not in omit]
+        return (
+            "---\n" + "\n".join(lines) + "\n---\n\n"
+            "**Confidence:** medium\n\n## Answer\n[[노드A]] 결론.\n"
+        )
+
+    def test_deliverable_node_is_valid_and_scanned(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/questions/중심질문.md",
+            '---\ntype: question\ntitle: "q"\nstatus: open\n---\n',
+        )
+        write(
+            self.scope,
+            "wiki/deliverables/답변.md",
+            self.deliverable_text(),
+        )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["pages_checked"], 4)
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+        # deliverables never enter the maturity census (§14)
+        self.assertEqual(data["status_census"]["total"], 2)
+
+    def test_deliverable_missing_required_keys(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/deliverables/답변.md",
+            self.deliverable_text(omit=("question", "updated")),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["path"], "wiki/deliverables/답변.md")
+        self.assertEqual(finding["missing"], ["question", "updated"])
+
 
 if __name__ == "__main__":
     unittest.main()

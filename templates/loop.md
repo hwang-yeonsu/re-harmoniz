@@ -44,6 +44,10 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
                             judge testability from the body (non-empirical → redirect to reharmonization).
 - modal-interchange       : auto-find one genuine crossover with SIBLING_SCOPE (seed only);
                             if none, file the reason in SCOPE/wiki/questions/ and treat as a no-op.
+- ensemble                : auto-pick the question — the scope's central question (overview.md /
+                            CLAUDE.md purpose), else the questions/ node most linked from hardened
+                            claims. Safe to automate: add-only into wiki/deliverables/, update-in-
+                            place, node states untouched (EVOLUTION.md §14).
 
 ## PROCEDURE — do this exactly once per firing, then step 6
 0. LOCK   — if `<LEDGER>.lock` exists, read the ISO ts written inside it: younger than ~1h → another
@@ -62,8 +66,9 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
             • no result yet, and ≥ EXP_TIMEOUT → set the node `status: abandoned`, then
               STOP("exec-blocked-needs-human").
             Otherwise (no experiment running) run `/reharm:pushing SCOPE`. From its read-only report take:
-            R ∈ {root, reharmonization, critique, modal-interchange, experiment-design, current},
-            its evidence, the latest stagnation verdict, and the soonest re-verification date.
+            R ∈ {root, reharmonization, critique, modal-interchange, experiment-design, ensemble, current}
+            (a deep-research escalation recommendation is SKIPPED per DECISION POLICY — take the next
+            candidate), its evidence, the latest stagnation verdict, and the soonest re-verification date.
             • R = current                          → STOP("nothing-pending"); report the soonest date.
             • stagnation verdict ∈ STOP_ON         → STOP("stagnation:" + verdict).
 3. ACT    — perform EXACTLY ONE action for R, auto-deciding every choice per DECISION POLICY:
@@ -73,6 +78,7 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
             • critique          → `/reharm:critique SCOPE`
             • modal-interchange → `/reharm:modal-interchange SCOPE SIBLING_SCOPE`
                                    (skip, treat as no-op, if SIBLING_SCOPE = none)
+            • ensemble          → `/reharm:ensemble SCOPE` (question auto-picked per DECISION POLICY)
             • experiment-design → (only when NO experiment is running — one at a time; a running one is
                                    handled by JUDGE's poll above, not relaunched here):
                 (a) DESIGN  : `/reharm:experiment-design «the chosen claim»`

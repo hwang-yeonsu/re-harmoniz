@@ -4,6 +4,45 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-07-02
+
+**`reharm:ensemble`** (protocol **v0.5 → v0.6**): the loop finally gets an *exit*. A scope can
+reach a fully hardened core and still have nowhere the answer actually lives (field-evidenced: a
+central question sat answered-in-pieces across 10 hardened nodes with no synthesis outlet). The
+seventh skill assembles what survived into one citable deliverable — and the deliverable is
+deliberately **not** a knowledge node.
+
+### Added
+
+- **`reharm:ensemble` — answer synthesis** (`skills/ensemble/SKILL.md` + the `commands/ensemble.md`
+  0.4.1-style wrapper for `/reharm:ensemble`). Fix the question (user-confirmed — it is the
+  deliverable's identity) → collect the bearing claims/mashups **read-only** → synthesize
+  `wiki/deliverables/<question-slug>.md`: an `## Answer` whose every load-bearing sentence carries
+  an inline `[[node]] (status · confidence · generation)` snapshot, `## Load-bearing seeds` (the
+  immature nodes the answer leans on, listed not hidden), `## Open caveats`, and
+  `## What would change this conclusion`. A **confidence propagation header** under the H1 names
+  the weakest load-bearing claim and sets the deliverable's confidence to that floor — derived,
+  never asserted. Update-in-place (git owns versions, §8); **node states are invariant** — the
+  skill writes only `deliverables/` plus the index/hot/log close-out.
+- **`EVOLUTION.md` §14 + §2 `type: deliverable`** — a non-evolving node kind (required keys:
+  `type`/`title`/`created`/`updated`/`question`; evolution mechanics omitted by design, like
+  `experiment`). §1 tree gains `wiki/deliverables/`; §11.2 gains a Deliverables index table
+  (outside the maturity census).
+
+### Changed
+
+- **`wiki-lint.py`** scans `wiki/deliverables/` and validates the §2 deliverable keys;
+  `deliverable` joins the type enum. **`boundary-score.py`** adds `deliverable` to
+  `EXCLUDE_TYPES` — snapshots never skew the frontier graph.
+- **`reharm:pushing`** — new cascade rule (before the modal-interchange rule): ≥5 nodes at
+  `hardened`-or-above with the central question's deliverable absent or stale (`updated` predating
+  the newest `E####.md`) → recommend `ensemble`. Gather-state reads the deliverable lane.
+- **`templates/loop.md`** — `ensemble` joins the JUDGE R-set and ACT list (safe to automate:
+  add-only, update-in-place, node states untouched; the question is auto-picked from the scope's
+  central question per DECISION POLICY). Guides (EN/KO) synced — the loop now drives seven skills.
+- **`plugin.json` / `marketplace.json` descriptions** list the seventh skill; **README (EN/KO)**
+  gain the skill row, the `deliverables/` tree entry, and a walkthrough step ⑦.
+
 ## [0.9.0] — 2026-07-02
 
 Reinforcement + question-driven research (protocol **v0.4 → v0.5**): the ambiguous backlog gets a
