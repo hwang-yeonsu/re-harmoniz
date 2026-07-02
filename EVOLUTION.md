@@ -1,4 +1,4 @@
-# EVOLUTION.md — The re:Harmoniz Protocol (v0.3)
+# EVOLUTION.md — The re:Harmoniz Protocol (v0.4)
 
 > This is the single source of truth for how a research wiki evolves.
 > The four skills (`reharm:root`, `reharm:reharmonization`, `reharm:modal-interchange`, `reharm:critique`) are thin entry points; this protocol is the engine.
@@ -195,22 +195,15 @@ Run §5 on every mutation:
 
 For each item under verification:
 
-1. Run **three refuters** independently, each restricted to one lens:
+1. Run **three refuters in parallel, each as an isolated sub-agent**, each restricted to one lens:
    - `coherence` — logical flaws, internal contradiction, leaps
    - `evidence` — source reliability, independence, dates, quote distortion
    - `reproducibility` — does it hold under real/experimental conditions; are there counterexamples
-2. Refuter prompt template:
-
-```
-You are a refuter. Your job is to REFUTE the claim below. Lens: {coherence|evidence|reproducibility}.
-When uncertain, refute — refutation is the default.
-Claim: <body + sources>
-Output (JSON): { "refuted": true|false, "reason": "...", "counter_evidence": "..." }
-```
-
-3. Verdict: **pass only if ≥2 of 3 survive** (`refuted=false`). Record refutation reasons in the report; absorb valid objections into the node.
-4. Before high-stakes promotions (e.g. hardened → evergreen candidates), a deeper external research pass may be run if your setup offers one; its output report goes into `.raw/` and re-enters through `reharm:root`.
-5. The reproducibility lens may also run **prospectively**: a `type: experiment` pre-registration (§2, §12) fixes its CONFIRM/REFUTE criterion *before* a field experiment, so Phase C/D applies the same lens to the result without redefining it after the fact. Same rubric, run ahead of the evidence.
+2. **Isolation is structural, not stylistic** — the §1 pollution-control invariant applied to the judging side. An in-context refuter has watched the mutation being made and is anchored toward accepting it; an isolated one judges only the artifact. Each refuter is spawned on the worker doc `skills/reharmonization/refuter.md` (resolved to an **absolute path** by the orchestrator) and receives, inline in its spawn prompt: its one lens, the target node verbatim (frontmatter + body, post-mutation), the cited `wiki/sources/` page originals, and the lens material refuter.md lists — and **never the session's mutation narrative**. Refuters are judgment-only: they write nothing, fetch nothing, and read nothing but `EVOLUTION.md`. The exact inputs and the return contract (`{ "lens": …, "refuted": true|false, "reason": …, "counter_evidence": … }`) live in refuter.md.
+3. Verdict: **pass only if ≥2 of 3 survive** (`refuted=false`). Record the three verdicts and refutation reasons in the report; absorb valid objections into the node. After a partial collapse is absorbed and the node revised, re-judge by **re-spawning the same isolated workers** against the revised node — never by an in-context second opinion.
+4. **Degraded mode fails loud.** If sub-agents cannot be spawned in the current environment, run the three lenses in-context as three separate, sequential judgments — and record **`refuters ran non-isolated`** in the E#### report's Verdicts section, so the weaker isolation is on the record for anyone auditing the session.
+5. Before high-stakes promotions (e.g. hardened → evergreen candidates), a deeper external research pass may be run if your setup offers one; its output report goes into `.raw/` and re-enters through `reharm:root`.
+6. The reproducibility lens may also run **prospectively**: a `type: experiment` pre-registration (§2, §12) fixes its CONFIRM/REFUTE criterion *before* a field experiment, so Phase C/D applies the same lens to the result without redefining it after the fact. Same rubric, run ahead of the evidence.
 
 ---
 
@@ -251,28 +244,47 @@ Inside the bounded fetch step above, prefer the `defuddle` CLI over native WebFe
 
 ## 7. Session Evaluation & Stagnation Detection
 
-At the end of every reharmonization session, self-grade against machine-checkable criteria and store the JSON next to the report (`E####.eval.json`):
+At the end of every reharmonization session, self-grade against machine-checkable criteria and store the JSON next to the report (`E####.eval.json`) — **schema v2, counter-based**:
 
 ```json
 {
   "pass": true,
-  "score": 0.82,
+  "score": 0.78,
   "checks": {
     "lint_clean": true,
     "no_unresolved_contradiction": true,
     "generation_progress": 3,
+    "mutations_rejected": 1,
+    "new_independent_sources": 2,
     "challenge_survival_rate": 0.75,
     "report_written": true
   },
   "stagnation": {
-    "trailing_scores": [0.78, 0.80, 0.82],
+    "trailing": [
+      { "session": "E0002", "generation_progress": 2, "mutations_rejected": 0, "new_seeds": 3, "new_independent_sources": 1, "failed_checks": [] },
+      { "session": "E0003", "generation_progress": 0, "mutations_rejected": 2, "new_seeds": 0, "new_independent_sources": 0, "failed_checks": [] },
+      { "session": "E0004", "generation_progress": 3, "mutations_rejected": 1, "new_seeds": 1, "new_independent_sources": 2, "failed_checks": [] }
+    ],
     "verdict": "continue"
   }
 }
 ```
 
-- `pass` (required boolean), `score` (optional numeric). A failing session is still a valid session — it simply becomes Phase A's first target next time.
-- **Stagnation detection**: compare the trailing 3 session scores. Flat or declining with no new seeds → `verdict: "reseed"` (the scope needs new raw material, not more churn). Repeatedly failing the same check → `verdict: "change-strategy"`. Otherwise `"continue"`.
+- `pass` (required boolean) and `stagnation.verdict` (required enum: `continue` | `reseed` | `change-strategy`) are the only fields other tooling branches on; `wiki-lint.py` validates both on the latest eval (`eval_findings`, a warning). A failing session is still a valid session — it simply becomes Phase A's first target next time.
+- **Counters** (this session's row also closes the `trailing` array; earlier rows come from the previous evals):
+  - `generation_progress` — total generation gains this session.
+  - `mutations_rejected` — mutations Phase D refused (rolled back, absorbed-and-demoted, or dropped). **A high value is not failure** — correctly culling bad mutations is healthy selection; hiding it once mis-scored a healthy session as a 0.45 slump. It becomes a problem only as a *streak* (see change-strategy below).
+  - `new_seeds` — nodes newly created this session (Phase C spin-offs, imports).
+  - `new_independent_sources` — sources newly cited this session that are independent of the target claims' existing citations (the §3 developing→hardened currency).
+  - `failed_checks` — names of the boolean checks that failed this session.
+- `score` is **optional, display-only, and derived** — fixed formula, booleans as 0/1:
+  `score = mean( lint_clean, no_unresolved_contradiction, report_written, challenge_survival_rate, min(generation_progress, 3) / 3 )`.
+  **No verdict, gate, or tool may branch on `score`.** It exists for a human scanning a list of sessions, nothing else.
+- **Stagnation verdict — computed from counters only, never from scores.** Over the trailing 3 sessions (including this one; fewer than 3 completed sessions → `continue`, not enough trail to judge):
+  - `reseed` — Σ `generation_progress` == 0 **and** Σ `new_seeds` == 0 **and** Σ `new_independent_sources` == 0. Nothing moved and nothing new came in: the scope needs new raw material, not more churn.
+  - `change-strategy` — the **same** check name appears in `failed_checks` 3 sessions in a row, **or** 3 sessions in a row rejected every attempted mutation (`mutations_rejected` > 0 with `generation_progress` == 0 in each). The loop is hitting the same wall; repeating it won't help.
+  - `continue` — otherwise. In particular, a single all-rejected session with healthy neighbors is `continue` — that is selection working, not stagnation.
+- Legacy (v1) evals carrying `trailing_scores` stay readable — only `pass` and `stagnation.verdict` are load-bearing, and both existed in v1. New sessions always write v2.
 
 ---
 

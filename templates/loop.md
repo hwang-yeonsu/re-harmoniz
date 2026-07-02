@@ -29,7 +29,8 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 - pushing recommendation  : take the cascade first-match as-is (already deterministic).
 - reharmonization Phase B : auto-pick frontier-top + past-cadence nodes (no user-named topic);
                             record the picks and rationale in E####.md "Targets & Why".
-- reharmonization Phase D : unchanged — 3 refuters, ≥2/3 must survive; refute when unsure.
+- reharmonization Phase D : unchanged — 3 refuters as ISOLATED sub-agents (refuter.md; no mutation
+                            narrative passed), ≥2/3 must survive; refute when unsure.
 - critique adjudication   : adjudicate by evidence — clear support → adopt/reject; a contradiction
                             pair → resolve by evidence weight (absorb into ## Objections & Limits);
                             both sides weak → needs-research (sharpen into questions/, do NOT assert);

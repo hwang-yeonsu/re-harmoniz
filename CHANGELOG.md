@@ -4,6 +4,55 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-07-02
+
+The trust core (protocol **v0.3 → v0.4**): the three steering signals an autonomous or long-running
+loop depends on — Phase D verdicts, the session eval, and the maturity census — stop being
+in-context roleplay, hand-scored numbers, and a hand-edited line, and become structurally isolated,
+counter-based, and computed. Additive-only; no scope migration required.
+
+### Added
+
+- **`skills/reharmonization/refuter.md` — Phase D refuters are now isolated sub-agents.** A new
+  frontmatter-less worker doc (the `skills/root/per-source.md` pattern) the session spawns three of
+  in parallel, one lens each (`coherence` / `evidence` / `reproducibility`). Each refuter receives
+  its material **inline** — the target node verbatim, the cited `wiki/sources/` page originals
+  (quote-distortion surface for the evidence lens), and per-lens extras (supports/contradicts
+  neighbor conclusions; the pre-registered CONFIRM/REFUTE block when one exists) — and **never the
+  session's mutation narrative**: the §1 pollution-control invariant applied to the judging side.
+  Refuters are judgment-only (write nothing, fetch nothing, read nothing but `EVOLUTION.md`) and
+  return the existing §5 JSON contract. `EVOLUTION.md` §5 promotes isolated parallel execution to
+  the standard, moves the prompt template into refuter.md, and adds a fail-loud degraded mode: if
+  spawning is unavailable, the lenses run in-context and the E#### report must record
+  `refuters ran non-isolated`.
+- **`wiki-lint.py` computes the maturity census** — the report JSON gains a top-level
+  `status_census` (claims + mashups frontmatter aggregation) plus a non-breaking `census_drift`
+  warning when the display-only `**Census:**` line in `index.md` disagrees (or is missing while
+  nodes exist). `reharm:pushing` now reads `status_census` as its census signal instead of parsing
+  the index line.
+- **`wiki-lint.py` validates the latest session eval** — the newest `E####.eval.json` must carry a
+  boolean `pass` and a `stagnation.verdict` enum (§7); a missing, unparseable, or invalid file is
+  reported as non-breaking `eval_findings` warnings. Neither new check affects `clean`.
+
+### Changed
+
+- **`EVOLUTION.md` §7 — session eval schema v2, counter-based stagnation.** `checks` gains
+  `mutations_rejected` and `new_independent_sources`; `stagnation.trailing` carries per-session
+  counter rows (`generation_progress` / `mutations_rejected` / `new_seeds` /
+  `new_independent_sources` / `failed_checks`) instead of scores. The verdict is computed **from
+  counters only**: `reseed` = 3 trailing sessions with zero generation progress, zero new seeds,
+  zero new independent sources; `change-strategy` = the same check failing 3 sessions in a row or
+  3 consecutive all-mutations-rejected sessions; otherwise `continue`. `score` becomes optional,
+  display-only, and derived by a fixed formula — nothing may branch on it. Motivated by field
+  evidence: a healthy session that correctly rejected a bad mutation was mis-scored as a 0.45
+  slump; rejected mutations are now a first-class, visible counter (healthy culling), and only a
+  *streak* of them signals a strategy problem. Legacy v1 evals stay readable (only
+  `pass`/`stagnation.verdict` are load-bearing).
+- **`skills/reharmonization/SKILL.md` Phase D** spawns the isolated refuters (realpath-resolved
+  worker doc + `EVOLUTION.md`, inline materials, parallel), re-spawns the same lens workers after a
+  partial-collapse revision, and states the fail-loud degraded mode. **`templates/loop.md`**
+  DECISION POLICY wording follows.
+
 ## [0.7.1] — 2026-07-02
 
 Correctness and precision fixes to the 0.7.0 autonomous loop template, verified against the native

@@ -21,8 +21,15 @@ Checks (EVOLUTION.md §4 Phase E.3):
      non-empty `contradicts:` frontmatter.
   5. duplicate stems — two wiki/ files sharing a filename stem. Wikilinks
      resolve by stem (§9), so a collision makes one file unreachable.
+  6. status census — `status_census` (top-level) aggregates claims/ +
+     mashups/ frontmatter status; the index.md `**Census:**` line is display
+     only, so a disagreement is reported as a `census_drift` warning.
+  7. session eval — the LATEST `E####.eval.json` (§7 schema v2) must carry a
+     boolean `pass` and a `stagnation.verdict` enum; a missing/broken/invalid
+     file is reported as `eval_findings` warnings.
 
-`clean` = the five checks all count zero (`unresolved_external` excluded).
+`clean` = the five checks all count zero (`unresolved_external`,
+`census_drift`, and `eval_findings` are warnings and excluded).
 
 Usage:
   wiki-lint.py            # human-readable text
@@ -73,6 +80,10 @@ VALID_ENUMS = {
 EXPERIMENT_STATUSES = {"planned", "running", "imported", "abandoned"}
 DATE_KEYS = ("created", "updated", "last_challenged")
 INT_KEYS = ("generation", "challenges_survived")
+# §3 maturity ladder, in census display order (claims + mashups only).
+MATURITY_STATUSES = ("seed", "developing", "hardened", "evergreen", "deprecated")
+# §7 stagnation verdict enum (eval schema v2).
+STAGNATION_VERDICTS = {"continue", "reseed", "change-strategy"}
 
 MAX_BODY_BYTES = 256 * 1024
 EXIT_OK = 0
@@ -86,6 +97,13 @@ CONTRADICTION_CALLOUT_RE = re.compile(
 )
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FENCE_RE = re.compile(r"^(\s*)(`{3,}|~{3,})")
+CENSUS_LINE_RE = re.compile(r"^\s*\*\*Census:\*\*(.*)$", re.MULTILINE)
+CENSUS_TOTAL_RE = re.compile(r"(\d+)\s*nodes?")
+CENSUS_PAIR_RE = re.compile(
+    r"\b(seed|developing|hardened|evergreen|deprecated)\s+(\d+)"
+)
+SESSION_REPORT_RE = re.compile(r"^(E\d+)\.md$")
+SESSION_EVAL_RE = re.compile(r"^(E\d+)\.eval\.json$")
 
 
 def log(msg: str) -> None:
@@ -332,6 +350,125 @@ def check_duplicate_stems() -> list[dict]:
     ]
 
 
+def compute_status_census(node_pages: list[dict]) -> dict:
+    """Maturity census computed from claims/ + mashups/ frontmatter (§11.2).
+
+    This is the canonical census (P0-C): the index.md `**Census:**` line is a
+    display copy. A page whose status falls outside the §3 ladder lands in no
+    bucket (the frontmatter check already flags it), so total may exceed the
+    bucket sum — deliberately visible.
+    """
+    census = {"total": 0, **{s: 0 for s in MATURITY_STATUSES}}
+    for page in node_pages:
+        if page["kind"] not in EVOLVING_DIRS:
+            continue
+        census["total"] += 1
+        status = (page["fm"] or {}).get("status")
+        if isinstance(status, str) and status in MATURITY_STATUSES:
+            census[status] += 1
+    return census
+
+
+def check_census_drift(census: dict) -> list[dict]:
+    """Compare the index.md `**Census:**` display line against the computed
+    census. Warnings only — drift never breaks `clean` (the fix is a routine
+    index refresh, not a structural fault). An empty scope with no census
+    line is tolerated (nothing to disagree about yet)."""
+    index_md = WIKI_DIR / "index.md"
+    text = ""
+    if index_md.is_file():
+        try:
+            text = index_md.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            text = ""
+    m = CENSUS_LINE_RE.search(text)
+    if not m:
+        if census["total"] == 0:
+            return []
+        return [
+            {
+                "path": "wiki/index.md",
+                "issue": "no **Census:** line found while evolving nodes exist "
+                "(§11.2 index template)",
+                "computed": census,
+            }
+        ]
+    rest = m.group(1)
+    found: dict = {s: 0 for s in MATURITY_STATUSES}
+    tm = CENSUS_TOTAL_RE.search(rest)
+    found["total"] = int(tm.group(1)) if tm else None
+    for sm in CENSUS_PAIR_RE.finditer(rest):
+        found[sm.group(1)] = int(sm.group(2))
+    drift = any(found[s] != census[s] for s in MATURITY_STATUSES) or (
+        found["total"] is not None and found["total"] != census["total"]
+    )
+    if not drift:
+        return []
+    return [
+        {
+            "path": "wiki/index.md",
+            "issue": "**Census:** line disagrees with the computed status_census",
+            "found": found,
+            "computed": census,
+        }
+    ]
+
+
+def check_eval() -> list[dict]:
+    """Validate the LATEST session's `E####.eval.json` against §7 schema v2:
+    `pass` must be a boolean and `stagnation.verdict` one of the fixed enum.
+    Warnings only — a broken eval means the steering signal is unreliable,
+    not that the wiki content is unhealthy, so `clean` is unaffected."""
+    evo_dir = WIKI_DIR / "meta" / "evolution"
+    if not evo_dir.is_dir():
+        return []
+    sessions: dict[str, dict] = {}
+    for f in sorted(evo_dir.iterdir()):
+        if not f.is_file():
+            continue
+        rm = SESSION_REPORT_RE.match(f.name)
+        if rm:
+            sessions.setdefault(rm.group(1), {})["report"] = f
+        em = SESSION_EVAL_RE.match(f.name)
+        if em:
+            sessions.setdefault(em.group(1), {})["eval"] = f
+    if not sessions:
+        return []
+    latest = max(sessions, key=lambda s: int(s[1:]))
+    rel = f"wiki/meta/evolution/{latest}.eval.json"
+    eval_path = sessions[latest].get("eval")
+    if eval_path is None:
+        return [
+            {
+                "path": rel,
+                "issue": "missing — §7 requires an eval JSON next to the "
+                f"{latest}.md report",
+            }
+        ]
+    try:
+        data = json.loads(eval_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return [{"path": rel, "issue": "unparseable JSON"}]
+    if not isinstance(data, dict):
+        return [{"path": rel, "issue": "top level is not an object"}]
+    findings = []
+    if not isinstance(data.get("pass"), bool):
+        findings.append(
+            {"path": rel, "issue": "`pass` missing or not a boolean (§7 required)"}
+        )
+    stagnation = data.get("stagnation")
+    verdict = stagnation.get("verdict") if isinstance(stagnation, dict) else None
+    if verdict not in STAGNATION_VERDICTS:
+        findings.append(
+            {
+                "path": rel,
+                "issue": "`stagnation.verdict` missing or not one of "
+                "continue|reseed|change-strategy (§7 required)",
+            }
+        )
+    return findings
+
+
 def run(want_json: bool) -> int:
     if not WIKI_DIR.is_dir():
         log(
@@ -345,6 +482,9 @@ def run(want_json: bool) -> int:
     orphans = check_orphans(node_pages)
     contradictions = check_contradictions(node_pages)
     duplicate_stems = check_duplicate_stems()
+    status_census = compute_status_census(node_pages)
+    census_drift = check_census_drift(status_census)
+    eval_findings = check_eval()
 
     counts = {
         "pages_checked": len(node_pages),
@@ -354,6 +494,8 @@ def run(want_json: bool) -> int:
         "contradictions": len(contradictions),
         "duplicate_stems": len(duplicate_stems),
         "unresolved_external": len(external),
+        "census_drift": len(census_drift),
+        "eval_findings": len(eval_findings),
     }
     clean = all(
         counts[k] == 0
@@ -372,6 +514,7 @@ def run(want_json: bool) -> int:
         "scope": str(SCOPE_ROOT),
         "counts": counts,
         "clean": clean,
+        "status_census": status_census,
         "findings": {
             "missing_frontmatter": fm_findings,
             "dead_wikilinks": dead,
@@ -379,6 +522,8 @@ def run(want_json: bool) -> int:
             "contradictions": contradictions,
             "duplicate_stems": duplicate_stems,
             "unresolved_external": external,
+            "census_drift": census_drift,
+            "eval_findings": eval_findings,
         },
     }
 
@@ -389,6 +534,8 @@ def run(want_json: bool) -> int:
     print("# Wiki Lint Report")
     print(f"scope: {SCOPE_ROOT}")
     print(f"pages checked: {counts['pages_checked']} · clean: {clean}")
+    census_parts = " · ".join(f"{s} {status_census[s]}" for s in MATURITY_STATUSES)
+    print(f"status census: {status_census['total']} nodes · {census_parts}")
     for label, items in (
         ("missing/invalid frontmatter", fm_findings),
         ("dead wikilinks", dead),
@@ -396,6 +543,8 @@ def run(want_json: bool) -> int:
         ("unresolved contradictions", contradictions),
         ("duplicate stems", duplicate_stems),
         ("unresolved external links (verify manually)", external),
+        ("census drift (warning — refresh index.md)", census_drift),
+        ("eval findings (warning — §7 schema v2)", eval_findings),
     ):
         print(f"\n## {label}: {len(items)}")
         for item in items:

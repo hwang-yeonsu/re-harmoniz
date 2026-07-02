@@ -324,6 +324,202 @@ class WikiLintTest(unittest.TestCase):
         self.assertEqual(finding["path"], "wiki/experiments/실험.md")
         self.assertEqual(finding["missing"], ["claim", "status"])
 
+    # ---- status_census (P0-C: census is computed, index line is display) ----
+
+    def _seed_statused_nodes(self) -> dict:
+        """Write claims/mashups with a known status mix; return expected census."""
+        statuses = ["seed", "seed", "developing", "hardened", "deprecated"]
+        for i, status in enumerate(statuses):
+            body = f"[[노드{(i + 1) % len(statuses)}]]"
+            if i == 0:
+                body += " [[매쉬업]]"  # keeps the mashup from linting as an orphan
+            write(
+                self.scope,
+                f"wiki/claims/노드{i}.md",
+                node_text(title=f"c{i}", status=status, body=body),
+            )
+        write(
+            self.scope,
+            "wiki/mashups/매쉬업.md",
+            node_text(ntype="mashup", title="m", status="developing", body="[[노드0]]"),
+        )
+        statuses.append("developing")  # the mashup counts too
+        expected = {"total": len(statuses)}
+        for s in ("seed", "developing", "hardened", "evergreen", "deprecated"):
+            expected[s] = statuses.count(s)
+        return expected
+
+    def test_status_census_counts_claims_and_mashups_only(self):
+        expected = self._seed_statused_nodes()
+        # sources/questions/experiments never enter the maturity census
+        write(
+            self.scope,
+            "wiki/sources/출처.md",
+            "---\ntype: source\ntitle: \"s\"\n---\n",
+        )
+        write(
+            self.scope,
+            "wiki/experiments/실험.md",
+            experiment_text(title="exp", claim="[[노드0]]"),
+        )
+        data = self.lint()
+        self.assertEqual(data["status_census"], expected)
+
+    def test_census_drift_on_mismatching_index_line(self):
+        expected = self._seed_statused_nodes()
+        write(
+            self.scope,
+            "wiki/index.md",
+            "# Index\n\n**Census:** 99 nodes · seed 9 · developing 0 · "
+            "hardened 0 · evergreen 0 · deprecated 0 (2026-06-12)\n",
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["census_drift"], 1)
+        finding = data["findings"]["census_drift"][0]
+        self.assertEqual(finding["path"], "wiki/index.md")
+        self.assertEqual(finding["computed"], expected)
+        self.assertEqual(finding["found"]["total"], 99)
+        # drift is a warning: it must never break `clean`
+        self.assertTrue(data["clean"])
+
+    def test_census_matching_index_line_is_quiet(self):
+        expected = self._seed_statused_nodes()
+        line = (
+            f"**Census:** {expected['total']} nodes · seed {expected['seed']} · "
+            f"developing {expected['developing']} · hardened {expected['hardened']} · "
+            f"evergreen {expected['evergreen']} · deprecated {expected['deprecated']} "
+            "(2026-06-12)"
+        )
+        write(self.scope, "wiki/index.md", f"# Index\n\n{line}\n")
+        data = self.lint()
+        self.assertEqual(data["counts"]["census_drift"], 0)
+        self.assertEqual(data["findings"]["census_drift"], [])
+
+    def test_census_line_missing_warns_but_stays_clean(self):
+        self._seed_statused_nodes()
+        write(self.scope, "wiki/index.md", "# Index\n\nno census here\n")
+        data = self.lint()
+        self.assertEqual(data["counts"]["census_drift"], 1)
+        self.assertIn("Census", data["findings"]["census_drift"][0]["issue"])
+        self.assertTrue(data["clean"])
+
+    def test_empty_scope_has_zero_census_and_no_drift(self):
+        (self.scope / "wiki" / "claims").mkdir(parents=True)
+        data = self.lint()
+        self.assertEqual(
+            data["status_census"],
+            {
+                "total": 0,
+                "seed": 0,
+                "developing": 0,
+                "hardened": 0,
+                "evergreen": 0,
+                "deprecated": 0,
+            },
+        )
+        self.assertEqual(data["counts"]["census_drift"], 0)
+
+    # ---- eval_findings (P0-B: §7 eval schema v2 validation, non-breaking) ----
+
+    def _clean_pair(self):
+        write(
+            self.scope, "wiki/claims/노드A.md", node_text(title="A", body="[[노드B]]")
+        )
+        write(
+            self.scope, "wiki/claims/노드B.md", node_text(title="B", body="[[노드A]]")
+        )
+
+    def test_valid_eval_v2_yields_no_findings(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.md",
+            "---\ntype: meta\ntitle: \"E0001\"\n---\n# E0001\n",
+        )
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.eval.json",
+            json.dumps(
+                {
+                    "pass": True,
+                    "score": 0.8,
+                    "checks": {
+                        "lint_clean": True,
+                        "generation_progress": 2,
+                        "mutations_rejected": 1,
+                        "new_independent_sources": 1,
+                    },
+                    "stagnation": {"verdict": "continue"},
+                }
+            ),
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["eval_findings"], 0)
+        self.assertTrue(data["clean"])
+
+    def test_missing_eval_for_latest_report_warns_but_stays_clean(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.md",
+            "---\ntype: meta\ntitle: \"E0001\"\n---\n# E0001\n",
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["eval_findings"], 1)
+        finding = data["findings"]["eval_findings"][0]
+        self.assertEqual(finding["path"], "wiki/meta/evolution/E0001.eval.json")
+        self.assertIn("missing", finding["issue"])
+        self.assertTrue(data["clean"])
+
+    def test_unparseable_eval_is_reported(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.eval.json",
+            "{ this is not json",
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["eval_findings"], 1)
+        self.assertIn("unparseable", data["findings"]["eval_findings"][0]["issue"])
+        self.assertTrue(data["clean"])
+
+    def test_eval_missing_pass_and_bad_verdict_are_both_reported(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.eval.json",
+            json.dumps({"pass": "yes", "stagnation": {"verdict": "flat"}}),
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["eval_findings"], 2)
+        issues = sorted(f["issue"] for f in data["findings"]["eval_findings"])
+        self.assertIn("pass", issues[0])
+        self.assertIn("stagnation.verdict", issues[1])
+        self.assertTrue(data["clean"])
+
+    def test_only_latest_session_eval_is_validated(self):
+        # E0001 has a broken eval, E0002 has a valid one — only the latest
+        # session (E0002) is checked, so no findings.
+        self._clean_pair()
+        write(self.scope, "wiki/meta/evolution/E0001.eval.json", "broken{")
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0002.md",
+            "---\ntype: meta\ntitle: \"E0002\"\n---\n# E0002\n",
+        )
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0002.eval.json",
+            json.dumps({"pass": False, "stagnation": {"verdict": "reseed"}}),
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["eval_findings"], 0)
+
+    def test_no_sessions_no_eval_findings(self):
+        self._clean_pair()
+        data = self.lint()
+        self.assertEqual(data["counts"]["eval_findings"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

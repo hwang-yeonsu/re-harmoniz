@@ -15,7 +15,7 @@ The anticipation beat — like *pushing* a note ahead of the bar, this looks at 
 2. **Gather state** — every signal already exists (§8); all reads, no writes:
    - **Frontier**: `python3 "${CLAUDE_SKILL_DIR}/../../scripts/boundary-score.py" --json --top 5` from the scope root. Positive-`score` pages are evolution-ready (outward-pointing, recently touched).
    - **Health**: `python3 "${CLAUDE_SKILL_DIR}/../../scripts/wiki-lint.py" --json` from the scope root. Read `clean` and `counts` (`contradictions`, `orphans`, `dead_wikilinks`, `missing_frontmatter`, `duplicate_stems`).
-   - **Census**: the `**Census:**` line in `wiki/index.md` — node totals per status.
+   - **Census**: `status_census` in the lint JSON above — the **computed** node totals per status (claims + mashups). The `**Census:**` line in `wiki/index.md` is display-only; a `census_drift` warning in the same JSON means the display line needs a refresh, never that the census signal is wrong.
    - **Last session**: the newest `wiki/meta/evolution/E####.eval.json` — `pass` and `stagnation.verdict` (`continue` / `reseed` / `change-strategy`).
    - **Decay**: node frontmatter `last_challenged` vs the §3 cadence (seed/developing every session, hardened 4 weeks, evergreen 12 weeks). Scopes are small — read dates directly, no script.
    - **Unprocessed material**: `.raw/` files (recursively) with no matching `wiki/sources/` page.
