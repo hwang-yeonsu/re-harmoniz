@@ -541,7 +541,8 @@ def load_external_allowlist() -> set[str]:
     m = ALLOWLIST_RE.search(text)
     if not m:
         return set()
-    raw = m.group(1).strip()
+    # the SCOPE_CLAUDE.md template annotates the toggle with an HTML comment
+    raw = re.sub(r"<!--.*?-->", "", m.group(1)).strip()
     if raw.lower() in ("", "none", "(none)", "-", "disabled"):
         return set()
     entries: set[str] = set()

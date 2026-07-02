@@ -724,6 +724,36 @@ class WikiLintTest(unittest.TestCase):
             data["findings"]["unresolved_external"][0]["target"], "미허용외부"
         )
 
+    def test_allowlist_line_with_html_comment_and_none_sentinel(self):
+        # The SCOPE_CLAUDE.md template writes the toggle with a trailing HTML
+        # comment; the parser must strip it, and a "(none)" value with a
+        # comment must still mean an empty allowlist.
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "- Allowed external wikilinks: 외부볼트노트 <!-- 의도된 볼트 링크 -->\n",
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[노드B]] [[외부볼트노트]]"),
+        )
+        write(
+            self.scope, "wiki/claims/노드B.md", node_text(title="B", body="[[노드A]]")
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["allowed_external"], 1)
+        self.assertEqual(data["counts"]["unresolved_external"], 0)
+        # now the "(none)" default with a comment → empty allowlist
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "- Allowed external wikilinks: (none) <!-- comma-separated stems -->\n",
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["allowed_external"], 0)
+        self.assertEqual(data["counts"]["unresolved_external"], 1)
+
     def test_no_allowlist_keeps_all_external_unresolved(self):
         write(
             self.scope,

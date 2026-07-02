@@ -80,6 +80,8 @@ legacy result lanes stay valid.
 - **External-wikilink allowlist** — a scope `CLAUDE.md` `Allowed external wikilinks:` toggle;
   matching stems are reported by lint under a new `allowed_external` count instead of
   `unresolved_external`, so deliberate vault/cross-scope citations stop reading as standing noise.
+  The parser strips the template's inline HTML comments (caught against a live scope: a
+  `<!-- … -->` annotation on the toggle line silently defeated every match).
 - **`boundary-score.py --json` rows expose `status` / `generation` / `challenges_survived` /
   `sources_count`** — the evidence-gate surface pushing's escalation signal reads without
   re-opening node files.
