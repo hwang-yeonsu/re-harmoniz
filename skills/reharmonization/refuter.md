@@ -22,7 +22,7 @@ A spawned sub-agent does **not** inherit `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_SKI
 ## Lens definitions (§5)
 
 - `coherence` — logical flaws, internal contradiction, leaps; does the conclusion follow from its own body, does it clash with its supports/contradicts neighbors.
-- `evidence` — source reliability, independence, dates, quote distortion (compare the node's use of each source against the cited page's original text).
+- `evidence` — source reliability, independence, dates, quote distortion (compare the node's use of each source against the cited page's original text). **Independence has ancestry**: two cited sources whose `origin`/`derived_from` frontmatter chains overlap — one derives from the other, or both digest the same primary — are **non-independent** (§2); refute any independence-dependent promotion built on them.
 - `reproducibility` — does it hold under real/experimental conditions; are there counterexamples; do `## Field Evidence` entries carry the conditions they held under; when a pre-registration exists, judge strictly against **its** CONFIRM/REFUTE criterion.
 
 ## Procedure

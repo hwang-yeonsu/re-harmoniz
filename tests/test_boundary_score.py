@@ -25,15 +25,18 @@ def write_node(
     updated: str,
     body: str = "",
     ntype: str = "claim",
+    extra_fm: str = "",
 ) -> Path:
     p = scope / rel
     p.parent.mkdir(parents=True, exist_ok=True)
+    extra = f"{extra_fm}\n" if extra_fm else ""
     p.write_text(
         "---\n"
         f"type: {ntype}\n"
         f'title: "{title}"\n'
         f"created: {updated}\n"
         f"updated: {updated}\n"
+        f"{extra}"
         "---\n"
         f"{body}\n",
         encoding="utf-8",
@@ -130,6 +133,42 @@ class BoundaryScoreTest(unittest.TestCase):
         proc = run_script(self.scope, "--json")
         self.assertEqual(proc.returncode, 2)
         self.assertIn("wiki", proc.stderr)
+
+    def test_json_exposes_evolution_fields(self):
+        # 0.9.0 (§13 deep-research bridge): pushing needs status / generation /
+        # challenges_survived / sources_count per row to spot claims stuck
+        # short of the ≥2-independent-sources gate without re-reading files.
+        today = date.today().isoformat()
+        sources = ["[[출처A]]", "[[출처B]]"]
+        extra = (
+            "status: developing\n"
+            "confidence: medium\n"
+            "generation: 3\n"
+            "challenges_survived: 2\n"
+            "sources:\n" + "\n".join(f'  - "{s}"' for s in sources)
+        )
+        write_node(
+            self.scope,
+            "wiki/claims/노드.md",
+            title="노드",
+            updated=today,
+            body="[[허브노드]]",
+            extra_fm=extra,
+        )
+        write_node(self.scope, "wiki/claims/허브노드.md", title="허브", updated=today)
+        proc = run_script(self.scope, "--json", "--include-score-zero")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        by_key = {r["title_key"]: r for r in json.loads(proc.stdout)["results"]}
+        row = by_key["노드"]
+        self.assertEqual(row["status"], "developing")
+        self.assertEqual(row["generation"], 3)
+        self.assertEqual(row["challenges_survived"], 2)
+        self.assertEqual(row["sources_count"], len(sources))
+        bare = by_key["허브노드"]
+        self.assertIsNone(bare["status"])
+        self.assertIsNone(bare["generation"])
+        self.assertIsNone(bare["challenges_survived"])
+        self.assertEqual(bare["sources_count"], 0)
 
 
 if __name__ == "__main__":

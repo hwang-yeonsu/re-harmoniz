@@ -43,9 +43,9 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 |---|---|
 | `reharm:root` | Entry point. Scaffolds a scope, then seeds it: throw in a repo URL, article, pseudocode, an existing note, or a rough idea → it lands in `.raw/` and becomes atomic `claims/` (all born generation 1). Several sources fan out to isolated sub-agents — one per source — so no source's framing leaks into another's claims. |
 | `reharm:reharmonization` | One evolution session — the namesake skill: Retrospect → Target (you approve) → Mutate → Natural Selection (3 refuters, ≥2/3 must survive) → Record. |
-| `reharm:modal-interchange` | Cross-scope mashup — borrow knowledge from a parallel scope (like borrowing chords from a parallel mode) and mint cross-domain insights, citation-only. |
-| `reharm:critique` | Adjudication — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) and resolves it through a short interview. |
-| `reharm:pushing` | Orientation (read-only). Reads the scope's current wiki + evolution state and recommends the next move — seed, evolve, or adjudicate — with the evidence behind it. Changes nothing; you decide. |
+| `reharm:modal-interchange` | Cross-scope mashup — borrow knowledge from a parallel scope (like borrowing chords from a parallel mode) and mint cross-domain insights, citation-only. Each mashup carries a `borrowed:` snapshot of the donor's state, so later donor drift surfaces as an objection instead of silent rot. |
+| `reharm:critique` | Adjudication — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) and resolves it through a short interview: themed bundles get one multi-select triage (promote / hold / archive), and open questions untouched for 4+ sessions are proposed — never auto-archived — as one aging batch. |
+| `reharm:pushing` | Orientation (read-only). Reads the scope's current wiki + evolution state and recommends the next move — seed, evolve, adjudicate, or escalate stuck evidence to deep research — with the evidence behind it. Changes nothing; you decide. |
 | `reharm:experiment-design` | Field-experiment designer. For a claim stuck at the `hardened → evergreen` gate, it **pre-registers** the experiment that would confirm or refute it — hypothesis, a CONFIRM/REFUTE criterion fixed before the run, the conditions to record — then hands a plain-language goal to an external runner (e.g. `autoresearch`). Designs and records only; never runs code. |
 
 ## Usage scenarios
@@ -134,12 +134,13 @@ A **scope** is a self-contained folder — three things make it one:
 ```
 Research_X/
 ├── .raw/            # immutable sources (papers, clips, dumps)
-│   └── experiments-results/ # field-origin — the scope's own experiment/real-world results
+│   ├── experiments-results/ # field-origin — the scope's own experiment/real-world results
+│   └── deep-research/       # reports returning from a deep-research escalation (§13)
 ├── wiki/
 │   ├── claims/      # ★ atomic assertions — the unit of evolution
 │   ├── mashups/     # ★ synthesized cross-insights
-│   ├── sources/     # one summary page per source
-│   ├── questions/   # open questions
+│   ├── sources/     # one summary page per source (origin: primary|secondary + ancestry)
+│   ├── questions/   # open questions — lifecycle: open → answered | escalated | archived
 │   ├── experiments/ # ★ field-experiment pre-registrations (design records)
 │   ├── meta/evolution/  # session reports E0001.md…
 │   └── index.md · hot.md · log.md · overview.md
@@ -181,7 +182,7 @@ Every skill above is **manual by design** — you pick the targets, you adjudica
 /loop                    # the only invocation — dynamic, self-paced: enforces MAX_ITERS, stops itself when idle or stagnant
 ```
 
-It is **opt-in and lives outside the plugin core** (a project-local file, not a skill) precisely because it overrides the no-auto-decide rule. Safeguards are built into the contract: a per-scope lock, a ledger kept *outside* the scope (`EVOLUTION.md` §8), reversible `deprecate` (never delete), and double logging (`E####.md` + ledger) for audit. Real experiment execution stays gated — it runs only when `RUN_EXPERIMENTS=yes` **and** a runner is configured in the scope's `CLAUDE.md` (§12); otherwise it stops at design + handoff.
+It is **opt-in and lives outside the plugin core** (a project-local file, not a skill) precisely because it overrides the no-auto-decide rule. Safeguards are built into the contract: a per-scope lock, a ledger kept *outside* the scope (`EVOLUTION.md` §8), a per-iteration target cap (`MAX_TARGETS`, default 2), reversible `deprecate` (never delete), and double logging (`E####.md` + a ledger line naming the `targets` touched) for audit. Real experiment execution stays gated — it runs only when `RUN_EXPERIMENTS=yes` **and** a runner is configured in the scope's `CLAUDE.md` (§12); otherwise it stops at design + handoff.
 
 **Where it runs:** `/loop` is **local and session-scoped** — the Claude Code session must stay open and the machine awake for it to fire (a closed/sleeping laptop will not run it). The template is **dynamic-only** (a bare `/loop`, self-paced): that self-pacing is what enforces `MAX_ITERS` and lets it stop itself, and it works only for a bare `/loop` — don't pass an interval. For a fixed wall-clock schedule (e.g. nightly) or a laptop-closed, unattended run, use cloud [Routines](https://code.claude.com/docs/en/routines.md) (`/schedule`), which execute on Anthropic-managed infrastructure — not `/loop`. The template header is the terse contract; the **[autonomous-loop guide](templates/loop.guide.md)** is the full long-form explanation (what it is, why, how it's verified, the execution model, and the exact commands).
 

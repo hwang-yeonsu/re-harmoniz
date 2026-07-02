@@ -1,4 +1,4 @@
-# EVOLUTION.md — The re:Harmoniz Protocol (v0.4)
+# EVOLUTION.md — The re:Harmoniz Protocol (v0.5)
 
 > This is the single source of truth for how a research wiki evolves.
 > The four skills (`reharm:root`, `reharm:reharmonization`, `reharm:modal-interchange`, `reharm:critique`) are thin entry points; this protocol is the engine.
@@ -15,7 +15,8 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 ```
 <anywhere>/Research_X/
 ├── .raw/                     # immutable source documents (papers, clips, repo dumps)
-│   └── experiments-results/  # field-origin reports: the scope's own experiment/real-world results (§4 Phase C)
+│   ├── experiments-results/  # field-origin reports: the scope's own experiment/real-world results (§4 Phase C, §12)
+│   └── deep-research/        # deep-research reports returning from a §13 escalation
 ├── .reharm-draft/            # transient reharm:root fan-out staging (emptied after promotion; outside the lint-scanned trees)
 ├── wiki/
 │   ├── index.md              # master catalog + maturity census
@@ -45,6 +46,8 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 Only `claims/` and `mashups/` evolve. `sources/` pages exist so that claims can cite evidence without re-reading `.raw/`.
 
 Rules: `.raw/` is read-only, never modified. Nodes stay 100–200 lines; split if a node covers two concepts. Update, don't duplicate.
+
+**Result lanes are declared, not hardcoded.** The two `.raw/` result lanes above (`experiments-results/`, `deep-research/`) are the defaults. The scope `CLAUDE.md` §2 Metadata declaration is canonical: skills route results by what the scope declares, and a legacy lane name (e.g. the pre-0.6.0 `.raw/experiments/`) stays first-class in any scope that declares it — additive-only, no migration required.
 
 ### Root multi-source handling (fan-out)
 
@@ -77,6 +80,19 @@ aliases: []                     # english kebab-case aliases (search aid, §9)
 
 **Mandatory defaults for new nodes:** `status: seed`, `generation: 1`, `confidence: low`, `challenges_survived: 0`, `last_challenged: <creation date>`.
 
+**Cross-scope mashups carry a `borrowed:` snapshot** (minted by `reharm:modal-interchange`) — one entry per donor node, recording the state the knowledge had when borrowed:
+
+```yaml
+borrowed:
+  - node: "[[donor-node]]"
+    scope: /abs/path/to/donor-scope
+    status_at_mint: hardened
+    gen_at_mint: 4
+    date: 2026-07-02
+```
+
+Phase A (§4) compares each donor's **current** status/generation against this snapshot; drift (demotion, deprecation, or a conclusion-changing revision) is a **new objection** on the mashup — the borrowed premise moved under it. `wiki-lint.py` validates the subkeys.
+
 **Body structure (claim/mashup):**
 
 ```markdown
@@ -106,7 +122,7 @@ title: "What this experiment puts under test, declarative"
 created: 2026-06-19
 updated: 2026-06-19
 status: planned                 # planned | running | imported | abandoned
-claim: "[[target-claim]]"       # the single claim this experiment serves
+claim: "[[target-claim]]"       # the claim(s)/question(s) this experiment serves — a wikilink or a list
 runner: "/autoresearch:plan"    # optional: external bridge entry point (tool-agnostic, §12)
 ---
 
@@ -129,7 +145,34 @@ The target claim restated as the proposition under test.
 - the exact next command, run by the user in the code workspace (never here).
 ```
 
-**Mandatory keys:** `type: experiment`, `title`, `created`, `status`, `claim`. The four evolution-mechanic keys (`confidence`, `generation`, `last_challenged`, `challenges_survived`) are **omitted by design** — an experiment node is not graded, only its imported *result* is (against the pre-registered criterion). `status` uses the experiment lifecycle, never the maturity ladder.
+**Mandatory keys:** `type: experiment`, `title`, `created`, `status`, `claim`. `claim:` is a single wikilink **or a list** — one run routinely serves several claims and even an open question at once (field-evidenced), and forcing a singular key just misdeclares that. The four evolution-mechanic keys (`confidence`, `generation`, `last_challenged`, `challenges_survived`) are **omitted by design** — an experiment node is not graded, only its imported *result* is (against the pre-registered criterion). `status` uses the experiment lifecycle, never the maturity ladder.
+
+### Question node (lifecycle)
+
+`wiki/questions/` pages carry their own lifecycle — never the maturity ladder:
+
+```yaml
+---
+type: question
+title: "The open question, interrogative form"
+created: 2026-07-02
+status: open                    # open | answered | escalated | archived
+---
+```
+
+- `open` (default for new questions) → `answered` (resolved into a claim or verdict — say where) | `escalated` (handed to deep research, §13 — requires an `## Escalation` block) | `archived` (aged out via a critique verdict; a status flip, never a delete).
+- Required keys remain `type` + `title` (additive change). Legacy question pages that still carry maturity values (`status: seed`, tag conventions like `question/open`) stay **valid** — `wiki-lint.py` reports them as `legacy_question_status`, a warning, never an error. No migration required.
+
+### Source page metadata (independence)
+
+`sources/` pages may carry:
+
+```yaml
+origin: primary                 # primary | secondary
+derived_from: []                # secondary only: wikilinks to the primary source page(s) it digests
+```
+
+Independence has ancestry: the §5 evidence lens treats two sources whose `derived_from` chains overlap — one derives from the other, or both digest the same primary — as **non-independent**, so they can never jointly satisfy the §3 developing→hardened ≥2-independent-sources gate. Deep-research reports are secondary by construction (§13).
 
 ---
 
@@ -148,6 +191,7 @@ The target claim restated as the proposition under test.
 
 - Promotion is never auto-computed. Phase D **proposes** it with evidence; the evolution report records the rationale.
 - Re-verification cadence (the decay curve is a *re-verification trigger*, never an auto-editor): seed/developing **every session**, hardened **4 weeks**, evergreen **12 weeks**.
+- **Decay candidates are capped.** When Phase B lists cadence-overdue nodes, seed/developing candidates show only the **top 5 by longest overrun** — an aging scope would otherwise flood every session with decay work and starve the frontier. The rest simply wait their turn; nothing is dropped.
 - **Experiment nodes sit outside this ladder** — they have their own lifecycle (`planned → running → imported | abandoned`, §2) and never gain a generation. Their only tie to maturity is the `hardened → evergreen` gate: a `type: experiment` pre-registration fixes the confirm/refute criterion the §5 reproducibility lens applies to the imported result (§4 Phase C). The result — not the experiment node — is what opens (or fails to open) the gate.
 
 ---
@@ -159,7 +203,8 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
 ### Phase A. Retrospect
 1. Read the latest report in `wiki/meta/evolution/` and `hot.md`.
 2. Adversarially re-verify the nodes changed last session (§5). Taking long is fine.
-3. Roll back (revise) or demote (deprecated) anything that collapsed. If the last session evaluation (§7) failed, start from its failing checks.
+3. **Borrowed-snapshot check**: for mashups carrying `borrowed:` (§2), compare each donor node's current status/generation against the snapshot — drift is a new objection to absorb this session.
+4. Roll back (revise) or demote (deprecated) anything that collapsed. If the last session evaluation (§7) failed, start from its failing checks.
 
 ### Phase B. Target Selection
 1. Frontier candidates: from the scope root run
@@ -321,7 +366,7 @@ Every scope's `CLAUDE.md` must contain (template: `templates/SCOPE_CLAUDE.md`):
 3. Protocol pointer: "This scope follows the re:Harmoniz protocol (`reharm` plugin, EVOLUTION.md)."
 4. Adversarial verification summary (§5 — the channel that injects the rubric into any research loop running inside the scope).
 5. Seed source candidates (input queue for `reharm:root`).
-6. Optional toggles: `Web search: disabled`, custom re-verification cadence, and **source policy** (preferred/excluded sources — e.g. prefer peer-reviewed / official / primary, never cite social media or undated pages as high-confidence; this scopes the §6 evidence lens per domain).
+6. Optional toggles: `Web search: disabled`, custom re-verification cadence, **source policy** (preferred/excluded sources — e.g. prefer peer-reviewed / official / primary, never cite social media or undated pages as high-confidence; this scopes the §6 evidence lens per domain), `Research escalation:` (the §13 deep-research entry point — unset keeps the bridge closed), and `Allowed external wikilinks:` (deliberate cross-scope stems; lint reports them as `allowed_external` instead of unresolved noise).
 
 ---
 
@@ -388,3 +433,22 @@ Three layers, each owning one thing — and they must not bleed into each other:
 - **Return path.** The runner's report lands in `.raw/experiments-results/` (the field-origin convention, §1) → `reharm:root` summarizes it into `sources/` → `reharm:reharmonization` Phase C imports it, judged against the node's pre-registered criterion (§4 Phase C), and flips the experiment node to `imported`.
 - **Testability gate.** Only empirically testable claims get an experiment. Definitional / analytical / historical claims have no runnable result; their evidence path is independent-source corroboration (§3 developing→hardened) and the §5 refuters — the design skill detects this and redirects rather than forcing a metric.
 - **`reharm:pushing` only points here.** It detects a claim stuck at the evergreen gate and recommends the design skill (read-only, §3/§4 "nothing is auto-decided"); it never authors the spec itself.
+
+---
+
+## 13. Deep Research Bridge
+
+§12 opens the one gate the wiki cannot open from inside (`hardened → evergreen`). This section is its sibling for the **evidence gate** (`developing → hardened`, §3): when a claim sits short of ≥2 independent sources session after session — or an open question refuses to die — the bounded §6 web pass is often too shallow, and churning it again is exactly what §7 calls stagnation. A **deep research escalation** hands the question to an external deep-research loop and routes its report back in as raw material. **Manual-only (v1):** `reharm:pushing` recommends it, the user decides; the autonomous loop template never triggers it.
+
+Three phases, on the same declared-seam pattern as §12 (tool-agnostic — the protocol fixes the seam, not the tool):
+
+| Phase | Who | Owns | Does **not** |
+|---|---|---|---|
+| **DESIGN** | in-scope: the user, typically via a `reharm:critique` escalate verdict | flipping the question node to `status: escalated` (§2) and writing its `## Escalation` block | run any research |
+| **EXECUTE** | the external deep-research tool named by the scope `CLAUDE.md` `Research escalation:` toggle (§10) | running the research outside the session; emitting a report | adjudicate claims; write into the wiki |
+| **RETURN** | `reharm:root` → `reharm:reharmonization` | landing the report from `.raw/deep-research/` (§1) as sources + claims; importing through Phase C/D | skip §5 verification |
+
+- **DESIGN — escalation is question-shaped.** The unit is a `wiki/questions/` node, never a claim: flip it to `status: escalated` and write an `## Escalation` block that answers one thing — **"what would change our mind?"**: the missing independent evidence, the counterexample that would settle it, and wikilinks to the claim(s) it serves. Without that block an escalation is just "search more," which §6 already does; with it, the returning report can be judged against a criterion fixed in advance (the same pre-registration discipline as §12).
+- **EXECUTE — the toggle is the gate.** The entry point lives in the scope `CLAUDE.md` (`Research escalation:` — §10), same pattern as §12's `runner:`. Toggle unset → the bridge is closed and pushing never recommends it. The tool runs **outside** the session (the user carries the question across, as in §12); its report lands in `.raw/deep-research/`.
+- **RETURN — secondary by construction.** `reharm:root` atomizes the report like any source, but its `sources/` page records `origin: secondary` and `derived_from:` the primaries it digests (§2); where a primary matters, land and cite it directly. The next reharmonization session imports the material through Phase C/D, and the question flips `escalated → answered` when its claims move. **That is how §13 opens the §3 developing→hardened gate**: by delivering the independent sources the gate demands — with independence still adjudicated by the §5 evidence lens (`derived_from` overlap = non-independent), so a deep-research digest can never double-count as two sources.
+- **`reharm:pushing` only points here** (cascade, right after the §12 experiment rule): a `developing` claim with no new independent source for ≥2 sessions, or an `open` question with no progress for ≥4 sessions, while the toggle is set → recommend escalation, read-only. The autonomous loop template **skips** this recommendation entirely (manual-only v1) and falls through to the next candidate.

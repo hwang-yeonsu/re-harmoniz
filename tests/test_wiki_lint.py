@@ -520,6 +520,223 @@ class WikiLintTest(unittest.TestCase):
         data = self.lint()
         self.assertEqual(data["counts"]["eval_findings"], 0)
 
+    # ---- borrowed: snapshot validation (0.9.0 modal-interchange drift) ----
+
+    BORROWED_OK = (
+        "borrowed:\n"
+        '  - node: "[[도너노드]]"\n'
+        "    scope: /abs/Research_B\n"
+        "    status_at_mint: hardened\n"
+        "    gen_at_mint: 4\n"
+        "    date: 2026-06-30"
+    )
+
+    def test_borrowed_snapshot_valid(self):
+        write(
+            self.scope,
+            "wiki/mashups/교차매쉬업.md",
+            node_text(
+                ntype="mashup",
+                title="m",
+                extra_fm=self.BORROWED_OK,
+                body="[[노드A]]",
+            ),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[교차매쉬업]]"),
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+        # the donor wikilink is cross-scope: reported external, not dead
+        self.assertEqual(data["counts"]["dead_wikilinks"], 0)
+        self.assertEqual(
+            data["findings"]["unresolved_external"][0]["target"], "도너노드"
+        )
+        self.assertTrue(data["clean"])
+
+    def test_borrowed_missing_subkeys_and_bad_status_flagged(self):
+        bad = (
+            "borrowed:\n"
+            '  - node: "[[도너노드]]"\n'
+            "    status_at_mint: solid\n"
+            "    gen_at_mint: four"
+        )
+        write(
+            self.scope,
+            "wiki/mashups/교차매쉬업.md",
+            node_text(ntype="mashup", title="m", extra_fm=bad, body="[[노드A]]"),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[교차매쉬업]]"),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["path"], "wiki/mashups/교차매쉬업.md")
+        issues = "\n".join(finding["invalid"]["borrowed"])
+        self.assertIn("scope", issues)
+        self.assertIn("date", issues)
+        self.assertIn("status_at_mint", issues)
+        self.assertIn("gen_at_mint", issues)
+
+    def test_borrowed_plain_string_entries_flagged(self):
+        write(
+            self.scope,
+            "wiki/mashups/교차매쉬업.md",
+            node_text(
+                ntype="mashup",
+                title="m",
+                extra_fm='borrowed: ["[[도너노드]]"]',
+                body="[[노드A]]",
+            ),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[교차매쉬업]]"),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertIn("borrowed", finding["invalid"])
+
+    # ---- question lifecycle (0.9.0 §2: open|answered|escalated|archived) ----
+
+    def test_question_lifecycle_status_valid(self):
+        self._clean_pair()
+        for status in ("open", "answered", "escalated", "archived"):
+            write(
+                self.scope,
+                f"wiki/questions/질문-{status}.md",
+                f'---\ntype: question\ntitle: "q"\nstatus: {status}\n---\n',
+            )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["legacy_question_status"], 0)
+
+    def test_question_legacy_maturity_status_tolerated_but_reported(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/questions/구질문.md",
+            '---\ntype: question\ntitle: "q"\nstatus: seed\n---\n',
+        )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+        self.assertEqual(data["counts"]["legacy_question_status"], 1)
+        finding = data["findings"]["legacy_question_status"][0]
+        self.assertEqual(finding["path"], "wiki/questions/구질문.md")
+        self.assertEqual(finding["status"], "seed")
+
+    def test_question_unknown_status_flagged(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/questions/이상질문.md",
+            '---\ntype: question\ntitle: "q"\nstatus: solved\n---\n',
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["invalid"], {"status": "solved"})
+        self.assertEqual(data["counts"]["legacy_question_status"], 0)
+
+    # ---- experiment claim: string OR list (0.9.0 §2, field evidence #3) ----
+
+    def test_experiment_claim_as_list_is_valid(self):
+        self._clean_pair()
+        claim_list = 'claim:\n  - "[[노드A]]"\n  - "[[노드B]]"'
+        write(
+            self.scope,
+            "wiki/experiments/다중실험.md",
+            "---\ntype: experiment\ntitle: \"exp\"\ncreated: 2026-06-12\n"
+            f"updated: 2026-06-12\nstatus: planned\n{claim_list}\n---\n",
+        )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+
+    # ---- sources origin/derived_from (0.9.0 §2 independence metadata) ----
+
+    def test_source_origin_and_derived_from_valid(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/sources/원출처.md",
+            '---\ntype: source\ntitle: "p"\norigin: primary\n---\n',
+        )
+        write(
+            self.scope,
+            "wiki/sources/이차출처.md",
+            '---\ntype: source\ntitle: "s"\norigin: secondary\n'
+            'derived_from:\n  - "[[원출처]]"\n---\n',
+        )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+
+    def test_source_invalid_origin_flagged(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/sources/출처.md",
+            '---\ntype: source\ntitle: "s"\norigin: tertiary\n---\n',
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["invalid"], {"origin": "tertiary"})
+
+    # ---- allowed external wikilinks (0.9.0 scope CLAUDE.md allowlist) ----
+
+    def test_allowed_external_wikilinks_split_from_unresolved(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "# Scope\n\n## 6. Toggles & Status\n\n"
+            "- Allowed external wikilinks: 외부볼트노트, [[둘째허용]]\n",
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(
+                title="A", body="[[노드B]] [[외부볼트노트]] [[둘째허용]] [[미허용외부]]"
+            ),
+        )
+        write(
+            self.scope, "wiki/claims/노드B.md", node_text(title="B", body="[[노드A]]")
+        )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["allowed_external"], 2)
+        self.assertEqual(
+            sorted(f["target"] for f in data["findings"]["allowed_external"]),
+            ["둘째허용", "외부볼트노트"],
+        )
+        self.assertEqual(data["counts"]["unresolved_external"], 1)
+        self.assertEqual(
+            data["findings"]["unresolved_external"][0]["target"], "미허용외부"
+        )
+
+    def test_no_allowlist_keeps_all_external_unresolved(self):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[노드B]] [[외부볼트노트]]"),
+        )
+        write(
+            self.scope, "wiki/claims/노드B.md", node_text(title="B", body="[[노드A]]")
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["allowed_external"], 0)
+        self.assertEqual(data["counts"]["unresolved_external"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

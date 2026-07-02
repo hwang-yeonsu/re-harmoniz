@@ -80,6 +80,15 @@ TYPE_RE = re.compile(r"^type:\s*(\S+)", re.MULTILINE)
 UPDATED_RE = re.compile(r"^updated:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", re.MULTILINE)
 CREATED_RE = re.compile(r"^created:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", re.MULTILINE)
 TITLE_RE = re.compile(r'^title:\s*"?([^"\n]+?)"?\s*$', re.MULTILINE)
+# Evolution-mechanic keys exposed per --json row (EVOLUTION.md §13: pushing
+# reads these to spot claims stuck short of an evidence gate without
+# re-reading node files).
+STATUS_RE = re.compile(r"^status:\s*(\S+)", re.MULTILINE)
+GENERATION_RE = re.compile(r"^generation:\s*(\d+)", re.MULTILINE)
+CHALLENGES_RE = re.compile(r"^challenges_survived:\s*(\d+)", re.MULTILINE)
+# [ \t]* not \s* — \s would swallow the newline and misread a block list's
+# first `- item` line as an inline value.
+SOURCES_KEY_RE = re.compile(r"^sources:[ \t]*(.*)$", re.MULTILINE)
 # Wikilinks: [[Target]] or [[Target|Alias]] or [[Target#Heading]]
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 
@@ -91,6 +100,31 @@ def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
+def count_sources(fm_raw: str) -> int:
+    """Number of entries under the `sources:` frontmatter key — inline
+    (`sources: ["[[a]]", "[[b]]"]`) or block (`- "[[a]]"` lines)."""
+    m = SOURCES_KEY_RE.search(fm_raw)
+    if not m:
+        return 0
+    inline = m.group(1).strip()
+    if inline:
+        if inline.startswith("["):
+            inner = inline.strip("[]").strip()
+            if not inner:
+                return 0
+            return len([p for p in inner.split(",") if p.strip()])
+        return 1  # single scalar value
+    count = 0
+    for line in fm_raw[m.end():].splitlines():
+        if re.match(r"^\s*-\s+\S", line):
+            count += 1
+        elif line.strip() == "":
+            continue
+        else:
+            break
+    return count
+
+
 def parse_frontmatter(text: str) -> tuple[dict, str]:
     m = FRONTMATTER_RE.match(text)
     if not m:
@@ -99,10 +133,17 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     body = text[m.end():]
     fm: dict = {}
     for key, regex in (("type", TYPE_RE), ("updated", UPDATED_RE),
-                       ("created", CREATED_RE), ("title", TITLE_RE)):
+                       ("created", CREATED_RE), ("title", TITLE_RE),
+                       ("status", STATUS_RE)):
         tm = regex.search(fm_raw)
         if tm:
             fm[key] = tm.group(1).strip().strip('"').strip("'")
+    for key, regex in (("generation", GENERATION_RE),
+                       ("challenges_survived", CHALLENGES_RE)):
+        tm = regex.search(fm_raw)
+        if tm:
+            fm[key] = int(tm.group(1))
+    fm["sources_count"] = count_sources(fm_raw)
     return fm, body
 
 
@@ -259,6 +300,11 @@ def score_page(title_key: str,
         "age_days": days,
         "recency_weight": round(rw, 4),
         "score": round(score, 4),
+        # evolution-mechanic surface for pushing (§13): null when absent
+        "status": fm.get("status"),
+        "generation": fm.get("generation"),
+        "challenges_survived": fm.get("challenges_survived"),
+        "sources_count": fm.get("sources_count", 0),
     }
 
 

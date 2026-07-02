@@ -8,6 +8,8 @@
 
 - **Code workspace path(s): `<absolute path — fill in>`**
 - Experiment lane: experiment reports produced in the workspace land in this scope's `.raw/experiments-results/` (the field-origin convention) and re-enter through `reharm:root`; `reharm:reharmonization` Phase C imports their conclusions — with the conditions they held under — into the relevant claim's `## Field Evidence` (the evergreen gate). External material (papers, web, repos) lands elsewhere under `.raw/` and is treated as seed.
+- Deep-research lane: reports returning from a §13 escalation land in `.raw/deep-research/` and re-enter through `reharm:root` (their `sources/` pages are `origin: secondary` with `derived_from:` ancestry).
+- These lane declarations are **canonical** (EVOLUTION.md §1): skills route results by what this section declares, so a legacy lane name (e.g. `.raw/experiments/`) stays valid in a scope that declares it here.
 
 ## 3. Protocol
 
@@ -32,4 +34,6 @@
 - Web search: enabled <!-- or: disabled -->
 - Source policy: prefer peer-reviewed / official docs / primary sources; do not cite social media, forums, or undated pages as high-confidence <!-- edit per domain; scopes the §6 evidence lens -->
 - Experiment runner (optional): `<external runner entry point, e.g. /autoresearch:plan>` — the field-experiment designer hands off here (EVOLUTION.md §12). Leave blank to decide per experiment.
+- Research escalation: <!-- external deep-research entry point (EVOLUTION.md §13) — leave unset to keep the bridge closed; pushing only recommends escalation when this is set -->
+- Allowed external wikilinks: (none) <!-- comma-separated stems (e.g. 볼트노트, [[다른스코프노드]]) that are deliberate cross-scope citations; wiki-lint reports them as allowed_external instead of unresolved noise -->
 - <YYYY-MM-DD>: scope created. Nodes: 0.

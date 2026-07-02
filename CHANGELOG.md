@@ -4,6 +4,74 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-07-02
+
+Reinforcement + question-driven research (protocol **v0.4 → v0.5**): the ambiguous backlog gets a
+batch triage and an aging path, cross-scope borrowings get a drift baseline, the autonomous loop
+gets a target cap, and a new **Deep Research Bridge** (§13) gives stuck evidence a deep-research
+escape hatch — manual-only, gated by a scope toggle. Additive-only; legacy question statuses and
+legacy result lanes stay valid.
+
+### Added
+
+- **`EVOLUTION.md` §13 — Deep Research Bridge.** The §12 sibling for the *evidence* gate
+  (`developing → hardened`): DESIGN (flip a question node to `status: escalated` + an
+  `## Escalation` block answering "what would change our mind?") → EXECUTE (the external tool named
+  by the scope `CLAUDE.md` `Research escalation:` toggle — unset keeps the bridge closed) → RETURN
+  (`.raw/deep-research/` → `reharm:root`, with the report's `sources/` page recorded
+  `origin: secondary` + `derived_from:` ancestry). Manual-only in v1: `reharm:pushing` gains a
+  cascade rule (after the experiment rule) recommending escalation for a `developing` claim with no
+  new independent source for ≥2 sessions or an `open` question stalled ≥4 sessions; the autonomous
+  loop template explicitly skips that row.
+- **Question lifecycle (§2)** — `wiki/questions/` pages get their own enum:
+  `status: open | answered | escalated | archived`, never the maturity ladder. Legacy pages
+  carrying maturity values stay valid — `wiki-lint.py` reports them as non-breaking
+  `legacy_question_status` warnings.
+- **Source independence metadata (§2)** — `sources/` pages may carry `origin: primary|secondary`
+  and `derived_from:` (wikilinks to the primaries a secondary digests). The per-source root worker
+  records them; the refuter's evidence lens treats overlapping `derived_from` chains as
+  **non-independent** (they cannot jointly satisfy the ≥2-independent-sources gate); lint
+  validates the `origin` enum.
+- **`borrowed:` snapshots on cross-scope mashups (§2)** — `reharm:modal-interchange` mints one
+  entry per donor node (`node` / `scope` / `status_at_mint` / `gen_at_mint` / `date`);
+  `reharm:reharmonization` Phase A compares the donor's current state against the snapshot and
+  absorbs drift as a new objection; `reharm:pushing` surfaces drift as a reharmonization trigger;
+  `wiki-lint.py` validates the subkeys (its stdlib frontmatter parser now reads one-level
+  `- key: val` mapping lists).
+- **External-wikilink allowlist** — a scope `CLAUDE.md` `Allowed external wikilinks:` toggle;
+  matching stems are reported by lint under a new `allowed_external` count instead of
+  `unresolved_external`, so deliberate vault/cross-scope citations stop reading as standing noise.
+- **`boundary-score.py --json` rows expose `status` / `generation` / `challenges_survived` /
+  `sources_count`** — the evidence-gate surface pushing's escalation signal reads without
+  re-opening node files.
+
+### Changed
+
+- **`reharm:critique` — batch triage + aging.** Themed bundles are adjudicated in at most two
+  multiSelect passes (promote — including *escalate* per §13 when the toggle is set — then archive;
+  unpicked = hold), while genuinely ambiguous single items keep the one-at-a-time interview. Open
+  questions untouched for ≥4 sessions are proposed as **one** batch-archive question — user-picked
+  only, never auto-archived. "Verdicts never raise `generation`" unchanged.
+- **`reharm:modal-interchange` — staged reconnaissance.** Between the hot/index pass and the
+  drill-down, a new frontmatter sweep scans *every* claim/mashup's frontmatter + first body line in
+  both scopes (grep-cheap), making the shortlist evidence-based; the full-read drill-down is capped
+  at 5 pages.
+- **`templates/loop.md` — `MAX_TARGETS` (default 2)** caps how many nodes one unattended
+  reharmonization iteration may auto-pick in Phase B (excess waits for the next tick), the ledger
+  line gains a `targets` field naming the nodes each iteration touched, and the DECISION POLICY
+  never auto-takes the §13 escalation row. Guides (EN/KO) synced. **`EVOLUTION.md` §3** caps the
+  Phase B decay-candidate list at the top 5 seed/developing nodes by longest cadence overrun.
+- **`EVOLUTION.md` §1 — result lanes are declared, not hardcoded.** The scope `CLAUDE.md` §2
+  Metadata declaration is canonical; `.raw/deep-research/` joins `.raw/experiments-results/` as a
+  default lane, and a declared legacy lane (e.g. pre-0.6.0 `.raw/experiments/`) stays first-class.
+  `templates/SCOPE_CLAUDE.md` gains the lane declarations plus the `Research escalation:` and
+  `Allowed external wikilinks:` toggles.
+- **Experiment `claim:` accepts a list (§2)** — one run routinely serves several claims/questions
+  at once (field-evidenced); the schema, lint, and the experiment-design skill now say so.
+- **README (EN/KO)** — scope tree gains the `deep-research/` lane and the question lifecycle;
+  skill-table rows for critique / modal-interchange / pushing updated; autonomous-mode safeguards
+  mention `MAX_TARGETS` and the ledger `targets` field.
+
 ## [0.8.0] — 2026-07-02
 
 The trust core (protocol **v0.3 → v0.4**): the three steering signals an autonomous or long-running

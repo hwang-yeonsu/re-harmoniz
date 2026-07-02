@@ -10,10 +10,14 @@ Borrow chords (knowledge) from a parallel key (another scope). **Read `${CLAUDE_
 ## Procedure
 
 1. **Resolve both scopes**: scope A (where results will live — the requester) and scope B (the donor). Both must be research scopes.
-2. **Cheap reconnaissance only**: read each scope's `hot.md` → `index.md`. No full crawl — drill into at most 3–5 candidate pages after shortlisting.
+2. **Staged reconnaissance — three widening passes, no full crawl**:
+   - ① `hot.md` → `index.md` of each scope (orientation).
+   - ② **Frontmatter sweep**: scan **every** claim/mashup in both scopes, but only frontmatter + the first body line (grep-cheap — status, title, first conclusion sentence). This is what makes the shortlist evidence-based instead of index-anecdotal.
+   - ③ **Drill-down**: read at most **5** candidate pages in full after shortlisting.
 3. **Contrast**: shortlist pairs where ① the same problem meets different solutions ② one side's `## Objections & Limits` is answered by the other side's mechanism ③ claims directly contradict across scopes.
 4. **Synthesize** adopted pairs into **scope A's `wiki/mashups/`**:
    - Frontmatter per EVOLUTION.md §2 with mandatory new-node defaults (`type: mashup`, `status: seed`).
+   - **Mint a `borrowed:` snapshot** (§2) — one entry per donor node: `node` (wikilink), `scope` (absolute donor-scope path), `status_at_mint`, `gen_at_mint`, `date`. This is the drift baseline reharmonization Phase A checks; without it a later donor demotion silently rots the mashup.
    - Scope B's knowledge is **cited by wikilink only — never copied or moved** (single source of truth). Scope B's nodes are never edited.
    - `sources:` lists wikilinks to both originating nodes.
 5. **Close out scope A**: `index.md`, `hot.md`, `log.md` (`## [date] modal-interchange | A×B`).

@@ -13,7 +13,9 @@ Checks (EVOLUTION.md §4 Phase E.3):
      scope. Bare targets matching nothing are reported separately as
      `unresolved_external`: they may be legitimate cross-scope citations
      (e.g. modal-interchange SSoT links), so they do not break `clean` —
-     review them manually.
+     review them manually. Stems declared in the scope CLAUDE.md
+     `Allowed external wikilinks:` toggle move to `allowed_external`
+     (acknowledged, zero-noise).
   3. orphans — claims/mashups (excluding deprecated) with zero inbound
      wikilinks from other node pages. Links from index/hot/log/overview or
      meta pages do not rescue a node; frontmatter wikilinks (supports: …) do.
@@ -27,9 +29,16 @@ Checks (EVOLUTION.md §4 Phase E.3):
   7. session eval — the LATEST `E####.eval.json` (§7 schema v2) must carry a
      boolean `pass` and a `stagnation.verdict` enum; a missing/broken/invalid
      file is reported as `eval_findings` warnings.
+  8. schema extensions (§2) — question pages use the question lifecycle
+     (open|answered|escalated|archived; maturity values tolerated as
+     `legacy_question_status` warnings), experiment `claim:` may be a string
+     or a list, sources may carry `origin: primary|secondary` +
+     `derived_from:`, and mashup `borrowed:` snapshots must carry
+     node/scope/status_at_mint/gen_at_mint/date.
 
 `clean` = the five checks all count zero (`unresolved_external`,
-`census_drift`, and `eval_findings` are warnings and excluded).
+`allowed_external`, `legacy_question_status`, `census_drift`, and
+`eval_findings` are warnings and excluded).
 
 Usage:
   wiki-lint.py            # human-readable text
@@ -74,10 +83,17 @@ VALID_ENUMS = {
     "type": {"claim", "mashup", "source", "question", "meta", "experiment"},
     "status": {"seed", "developing", "hardened", "evergreen", "deprecated"},
     "confidence": {"high", "medium", "low"},
+    "origin": {"primary", "secondary"},
 }
 # `status` is type-dependent: experiment nodes use their own lifecycle, never the
-# maturity ladder (§3). check_frontmatter swaps this set in when type == experiment.
+# maturity ladder (§3), and questions use their own lifecycle with the maturity
+# values tolerated as legacy (§2 — reported via `legacy_question_status`).
+# check_frontmatter swaps the right set in per type.
 EXPERIMENT_STATUSES = {"planned", "running", "imported", "abandoned"}
+QUESTION_STATUSES = {"open", "answered", "escalated", "archived"}
+# `borrowed:` snapshot subkeys minted by modal-interchange (§2) — the drift
+# baseline reharmonization Phase A compares against.
+BORROWED_KEYS = ("node", "scope", "status_at_mint", "gen_at_mint", "date")
 DATE_KEYS = ("created", "updated", "last_challenged")
 INT_KEYS = ("generation", "challenges_survived")
 # §3 maturity ladder, in census display order (claims + mashups only).
@@ -110,11 +126,17 @@ def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
+def _unquote(s: str) -> str:
+    return s.strip().strip('"').strip("'")
+
+
 def parse_frontmatter(text: str) -> tuple[dict | None, str]:
     """Return (frontmatter, body). frontmatter is None when no block exists.
 
     Values are strings; block-style lists (`key:` followed by `- item` lines)
-    become Python lists. No YAML library — stdlib only, same spirit as
+    become Python lists. A list item of the form `- key: val` opens a one-level
+    mapping whose following deeper-indented `key: val` lines join it (the
+    `borrowed:` snapshot shape). No YAML library — stdlib only, same spirit as
     boundary-score.py.
     """
     m = FRONTMATTER_RE.match(text)
@@ -129,17 +151,34 @@ def parse_frontmatter(text: str) -> tuple[dict | None, str]:
             continue
         key, val = km.group(1), km.group(2).strip()
         if val == "":
-            items: list[str] = []
+            items: list = []
+            item_indent = -1
             for nxt in lines[i + 1 :]:
-                if re.match(r"^\s*-\s+", nxt):
-                    items.append(nxt.strip()[1:].strip())
-                elif nxt.strip() == "":
+                if nxt.strip() == "":
                     continue
-                else:
-                    break
+                dm = re.match(r"^(\s*)-\s+(.*)$", nxt)
+                if dm:
+                    item_indent = len(dm.group(1))
+                    content = dm.group(2).strip()
+                    cm = FM_KEY_RE.match(content)
+                    if cm and cm.group(2).strip():
+                        items.append({cm.group(1): _unquote(cm.group(2))})
+                    else:
+                        items.append(_unquote(content))
+                    continue
+                nm = re.match(r"^(\s+)([A-Za-z_][\w-]*):\s*(.*)$", nxt)
+                if (
+                    nm
+                    and items
+                    and isinstance(items[-1], dict)
+                    and len(nm.group(1)) > item_indent
+                ):
+                    items[-1][nm.group(2)] = _unquote(nm.group(3))
+                    continue
+                break
             fm[key] = items
         else:
-            fm[key] = val.strip().strip('"').strip("'")
+            fm[key] = _unquote(val)
     return fm, body
 
 
@@ -229,6 +268,40 @@ def collect_aux_pages() -> list[dict]:
     return pages
 
 
+def validate_borrowed(borrowed) -> list[str]:
+    """Issues with a `borrowed:` snapshot (§2). Each entry must be a mapping
+    carrying node/scope/status_at_mint/gen_at_mint/date with typed values."""
+    if isinstance(borrowed, str):
+        if borrowed.strip() in ("", "[]"):
+            return []
+        return ["not a list of `- node:` mapping entries"]
+    if not isinstance(borrowed, list):
+        return ["not a list of `- node:` mapping entries"]
+    issues: list[str] = []
+    for idx, entry in enumerate(borrowed):
+        if not isinstance(entry, dict):
+            issues.append(
+                f"entry {idx}: not a mapping — expected subkeys "
+                + "/".join(BORROWED_KEYS)
+            )
+            continue
+        missing = sorted(k for k in BORROWED_KEYS if k not in entry)
+        if missing:
+            issues.append(f"entry {idx}: missing {'/'.join(missing)}")
+        status = entry.get("status_at_mint")
+        if isinstance(status, str) and status not in MATURITY_STATUSES:
+            issues.append(
+                f"entry {idx}: status_at_mint '{status}' not a maturity status"
+            )
+        gen = entry.get("gen_at_mint")
+        if isinstance(gen, str) and not gen.isdigit():
+            issues.append(f"entry {idx}: gen_at_mint '{gen}' not an integer")
+        date_val = entry.get("date")
+        if isinstance(date_val, str) and not DATE_RE.match(date_val):
+            issues.append(f"entry {idx}: date '{date_val}' not YYYY-MM-DD")
+    return issues
+
+
 def check_frontmatter(pages: list[dict]) -> list[dict]:
     findings = []
     for page in pages:
@@ -245,6 +318,10 @@ def check_frontmatter(pages: list[dict]) -> list[dict]:
         for key, allowed in VALID_ENUMS.items():
             if key == "status" and node_type == "experiment":
                 allowed = EXPERIMENT_STATUSES
+            elif key == "status" and node_type == "question":
+                # question lifecycle, with maturity values tolerated as legacy
+                # (they are counted separately in legacy_question_status)
+                allowed = QUESTION_STATUSES | set(MATURITY_STATUSES)
             val = fm.get(key)
             if isinstance(val, str) and val not in allowed:
                 invalid[key] = val
@@ -256,10 +333,28 @@ def check_frontmatter(pages: list[dict]) -> list[dict]:
             val = fm.get(key)
             if isinstance(val, str) and not DATE_RE.match(val):
                 invalid[key] = val
+        if page["kind"] in EVOLVING_DIRS and "borrowed" in fm:
+            issues = validate_borrowed(fm["borrowed"])
+            if issues:
+                invalid["borrowed"] = issues
         if missing or invalid:
             findings.append(
                 {"path": page["path"], "missing": missing, "invalid": invalid}
             )
+    return findings
+
+
+def check_legacy_question_status(pages: list[dict]) -> list[dict]:
+    """Question pages still carrying a maturity value in `status:` (§2 legacy —
+    the pre-0.9.0 convention). Tolerated, reported, never breaks `clean`."""
+    findings = []
+    for page in pages:
+        fm = page["fm"] or {}
+        if fm.get("type") != "question":
+            continue
+        status = fm.get("status")
+        if isinstance(status, str) and status in MATURITY_STATUSES:
+            findings.append({"path": page["path"], "status": status})
     return findings
 
 
@@ -414,6 +509,35 @@ def check_census_drift(census: dict) -> list[dict]:
     ]
 
 
+ALLOWLIST_RE = re.compile(r"Allowed external wikilinks:\s*(.*)$", re.MULTILINE)
+
+
+def load_external_allowlist() -> set[str]:
+    """Deliberate cross-scope wikilink stems declared in the scope CLAUDE.md
+    (`Allowed external wikilinks: a, [[b]]`). Matching link targets are
+    reported under `allowed_external` instead of `unresolved_external`, so
+    intended vault/cross-scope citations stop reading as noise."""
+    claude_md = SCOPE_ROOT / "CLAUDE.md"
+    if not claude_md.is_file():
+        return set()
+    try:
+        text = claude_md.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return set()
+    m = ALLOWLIST_RE.search(text)
+    if not m:
+        return set()
+    raw = m.group(1).strip()
+    if raw.lower() in ("", "none", "(none)", "-", "disabled"):
+        return set()
+    entries: set[str] = set()
+    for part in raw.split(","):
+        stem = part.strip().strip("[]").strip()
+        if stem:
+            entries.add(stem)
+    return entries
+
+
 def check_eval() -> list[dict]:
     """Validate the LATEST session's `E####.eval.json` against §7 schema v2:
     `pass` must be a boolean and `stagnation.verdict` one of the fixed enum.
@@ -478,7 +602,11 @@ def run(want_json: bool) -> int:
 
     node_pages = collect_node_pages()
     fm_findings = check_frontmatter(node_pages)
+    legacy_question = check_legacy_question_status(node_pages)
     dead, external = check_links(node_pages + collect_aux_pages())
+    allowlist = load_external_allowlist()
+    allowed_external = [e for e in external if e["target"] in allowlist]
+    external = [e for e in external if e["target"] not in allowlist]
     orphans = check_orphans(node_pages)
     contradictions = check_contradictions(node_pages)
     duplicate_stems = check_duplicate_stems()
@@ -494,6 +622,8 @@ def run(want_json: bool) -> int:
         "contradictions": len(contradictions),
         "duplicate_stems": len(duplicate_stems),
         "unresolved_external": len(external),
+        "allowed_external": len(allowed_external),
+        "legacy_question_status": len(legacy_question),
         "census_drift": len(census_drift),
         "eval_findings": len(eval_findings),
     }
@@ -522,6 +652,8 @@ def run(want_json: bool) -> int:
             "contradictions": contradictions,
             "duplicate_stems": duplicate_stems,
             "unresolved_external": external,
+            "allowed_external": allowed_external,
+            "legacy_question_status": legacy_question,
             "census_drift": census_drift,
             "eval_findings": eval_findings,
         },
@@ -543,6 +675,8 @@ def run(want_json: bool) -> int:
         ("unresolved contradictions", contradictions),
         ("duplicate stems", duplicate_stems),
         ("unresolved external links (verify manually)", external),
+        ("allowed external links (scope CLAUDE.md allowlist)", allowed_external),
+        ("legacy question status (§2 pre-lifecycle values)", legacy_question),
         ("census drift (warning — refresh index.md)", census_drift),
         ("eval findings (warning — §7 schema v2)", eval_findings),
     ):

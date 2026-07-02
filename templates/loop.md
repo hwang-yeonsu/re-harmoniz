@@ -19,6 +19,7 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 ## CONFIG — fill in, then leave fixed
 - SCOPE:           «absolute path to the scope (must contain .raw/ + wiki/)»
 - MAX_ITERS:       «N | inf»          ← enforced by self-pacing (dynamic /loop only); state is in the LEDGER
+- MAX_TARGETS:     «N, default 2»     ← Phase B auto-pick cap per iteration (reharmonization only)
 - RUN_EXPERIMENTS: «no | yes»         ← yes LAUNCHES real code (fire-and-return, then polled); gated below
 - EXP_TIMEOUT:     «duration | none»  ← a running experiment older than this → abandoned (no infinite wait)
 - SIBLING_SCOPE:   «absolute path | none»   ← donor scope for modal-interchange
@@ -26,9 +27,13 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 - LEDGER:          «<project>/.reharm-loop/<scope-name>.jsonl»   ← OUTSIDE the scope (EVOLUTION.md §8)
 
 ## DECISION POLICY — how the main session stands in for the user
-- pushing recommendation  : take the cascade first-match as-is (already deterministic).
-- reharmonization Phase B : auto-pick frontier-top + past-cadence nodes (no user-named topic);
-                            record the picks and rationale in E####.md "Targets & Why".
+- pushing recommendation  : take the cascade first-match as-is (already deterministic) — EXCEPT the
+                            deep-research escalation row (§13, manual-only): NEVER auto-escalate; skip
+                            that row and take pushing's next secondary candidate (or current).
+- reharmonization Phase B : auto-pick frontier-top + past-cadence nodes (no user-named topic),
+                            CAPPED at MAX_TARGETS per iteration — excess candidates wait for the next
+                            tick (an unattended session must stay small enough to audit); record the
+                            picks and rationale in E####.md "Targets & Why".
 - reharmonization Phase D : unchanged — 3 refuters as ISOLATED sub-agents (refuter.md; no mutation
                             narrative passed), ≥2/3 must survive; refute when unsure.
 - critique adjudication   : adjudicate by evidence — clear support → adopt/reject; a contradiction
@@ -89,6 +94,7 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 4. RECORD — append ONE JSONL line to the LEDGER (this is the loop's ONLY state; it lives outside the scope —
             the scope's own files are updated by the skills above, per EVOLUTION.md §8):
             {"n": N+1, "scope": "SCOPE", "R": "<R>", "cmd": "<command run>", "summary": "<one line>",
+             "targets": ["<node stems this iteration mutated/judged — [] for non-node actions>"],
              "eval_pass": <bool|null>, "stagnation": "<verdict>", "gate": <null|"exec-blocked">,
              "exp": <null|"launched"|"waiting"|"imported"|"abandoned">,
              "ts": "<ISO 8601 timestamp>", "stop": <null|"<reason>">}

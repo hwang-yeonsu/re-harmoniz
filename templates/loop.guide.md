@@ -124,12 +124,14 @@ preview; limits and the API may change. Sources:
 
 ## Safeguards
 
-Autonomy without an undo button is reckless; the contract bakes in four:
+Autonomy without an undo button is reckless; the contract bakes in six:
 
 - **Per-scope lock** — `<ledger>.lock` (holding the iteration's start ts) allows only one loop per scope; a concurrent firing exits with `STOP("overlap")`. Every stop unlocks before ending, and a lock older than ~1h is treated as a dead iteration and reclaimed — so one crashed tick can't deadlock the scope.
 - **External ledger** — the ledger lives **outside** the scope at `<project>/.reharm-loop/`. `EVOLUTION.md` §8 forbids in-scope state files, and keeping it out also means `wiki-lint` never flags it as an orphan.
 - **Reversible deprecate** — discarding a node is a **status flip**, never a delete; the loop never raises a node's generation.
-- **Double logging** — the skill writes `E####.md` *and* the loop appends a ledger line, so an unattended run can be retraced step by step.
+- **Double logging** — the skill writes `E####.md` *and* the loop appends a ledger line (including a `targets` field naming the nodes that iteration touched), so an unattended run can be retraced step by step.
+- **Target cap** — `MAX_TARGETS` (default 2) bounds how many nodes one unattended reharmonization iteration may auto-pick in Phase B; excess candidates simply wait for the next tick. Small iterations stay auditable.
+- **Manual-only rows stay manual** — the deep-research escalation recommendation (`EVOLUTION.md` §13) is never auto-taken: the loop skips that cascade row and moves to the next candidate. Escalation is a human decision by design.
 
 ---
 
@@ -192,6 +194,7 @@ cp templates/loop.md  /path/to/your-project/.claude/loop.md
 # 2. Fill in the CONFIG block, then leave it fixed.
 SCOPE:           /abs/path/to/scope         # must contain .raw/ + wiki/
 MAX_ITERS:       12                          # N | inf
+MAX_TARGETS:     2                           # Phase B auto-pick cap per iteration
 RUN_EXPERIMENTS: no                          # yes runs real code, gated above
 SIBLING_SCOPE:   none                        # donor scope for modal-interchange
 STOP_ON:         reseed, change-strategy

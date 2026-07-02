@@ -43,9 +43,9 @@
 |---|---|
 | `reharm:root` | 진입점. 스코프를 스캐폴딩한 뒤 씨앗을 투입합니다: repo URL, 글, 의사코드, 기존 노트, 막연한 아이디어를 던지면 → `.raw/`에 안착하고 원자적 `claims/`(전부 1세대로 탄생)가 됩니다. 여러 출처는 격리된 sub-agent로 fan-out(출처당 하나)되어, 한 출처의 framing이 다른 출처의 주장으로 새지 않습니다. |
 | `reharm:reharmonization` | 한 번의 진화 세션 — 프로젝트명의 유래가 된 스킬: 회고 → 표적(당신이 승인) → 변이 → 자연선택(반박자 3인, 2/3 이상 생존 필요) → 기록. |
-| `reharm:modal-interchange` | 스코프 간 매시업 — 평행 스코프에서 지식을 빌려와(평행 선법에서 코드를 빌려오듯) 도메인 교차 통찰을 발행, 인용 전용. |
-| `reharm:critique` | 판정 — 모호한 백로그(열린 질문, 정체된 노드, 모순, lint 경고)를 모아 짧은 인터뷰로 해소합니다. |
-| `reharm:pushing` | 방향 잡기(read-only). 스코프의 현재 위키·진화 상태를 읽어 다음 수 — 씨앗 투입, 진화, 판정 — 를 근거와 함께 추천합니다. 아무것도 바꾸지 않으며, 결정은 당신이 합니다. |
+| `reharm:modal-interchange` | 스코프 간 매시업 — 평행 스코프에서 지식을 빌려와(평행 선법에서 코드를 빌려오듯) 도메인 교차 통찰을 발행, 인용 전용. 각 매쉬업은 도너 상태의 `borrowed:` 스냅샷을 지니므로, 이후 도너의 변동(드리프트)이 조용한 부패 대신 objection으로 표면화됩니다. |
+| `reharm:critique` | 판정 — 모호한 백로그(열린 질문, 정체된 노드, 모순, lint 경고)를 모아 짧은 인터뷰로 해소합니다: 테마 묶음은 멀티셀렉트 일괄 triage(승격 / 보류 / 보관) 한 번으로, 4세션 이상 방치된 열린 질문은 자동 보관 없이 일괄 제안으로 처리합니다. |
+| `reharm:pushing` | 방향 잡기(read-only). 스코프의 현재 위키·진화 상태를 읽어 다음 수 — 씨앗 투입, 진화, 판정, 또는 막힌 근거의 딥리서치 승격 — 를 근거와 함께 추천합니다. 아무것도 바꾸지 않으며, 결정은 당신이 합니다. |
 | `reharm:experiment-design` | 현장 실험 설계자. `hardened → evergreen` 관문에 막힌 주장에 대해, 그것을 확증/반증할 실험을 **사전 등록**합니다 — 가설, 실행 전에 고정한 CONFIRM/REFUTE 기준, 기록할 조건 — 그리고 평이한 언어의 목표를 외부 러너(예: `autoresearch`)에 넘깁니다. 설계·기록만 하며, 코드는 절대 실행하지 않습니다. |
 
 ## 사용 시나리오
@@ -134,12 +134,13 @@ claude plugin install reharm@re-harmoniz
 ```
 Research_X/
 ├── .raw/            # 불변 출처 (논문, 클립, 덤프)
-│   └── experiments-results/ # 현장 출처 — 스코프 자체 실험/실세계 결과
+│   ├── experiments-results/ # 현장 출처 — 스코프 자체 실험/실세계 결과
+│   └── deep-research/       # 딥리서치 승격(§13)에서 돌아오는 보고서
 ├── wiki/
 │   ├── claims/      # ★ 원자적 단언 — 진화의 단위
 │   ├── mashups/     # ★ 합성된 교차 통찰
-│   ├── sources/     # 출처 1개당 요약 페이지 1개
-│   ├── questions/   # 열린 질문
+│   ├── sources/     # 출처 1개당 요약 페이지 1개 (origin: primary|secondary + 계보)
+│   ├── questions/   # 열린 질문 — 생명주기: open → answered | escalated | archived
 │   ├── experiments/ # ★ 현장 실험 사전 등록 (설계 기록)
 │   ├── meta/evolution/  # 세션 보고서 E0001.md…
 │   └── index.md · hot.md · log.md · overview.md
@@ -181,7 +182,7 @@ my-vault/                       # 당신의 지식 베이스 루트 (예: Obsidi
 /loop                    # 유일한 호출 — dynamic, self-pace: MAX_ITERS를 강제하고 할 일이 없거나 정체되면 스스로 멈춤
 ```
 
-이 모드는 자동 결정 금지 원칙을 깨기 때문에 **opt-in이며 플러그인 코어 바깥**에 있습니다(스킬이 아니라 프로젝트 로컬 파일). 안전장치는 계약에 내장되어 있습니다: 스코프당 lock, 스코프 *바깥*에 두는 ledger(`EVOLUTION.md` §8), 되돌릴 수 있는 `deprecate`(절대 삭제 안 함), 감사를 위한 이중 로깅(`E####.md` + ledger). 실제 실험 실행은 게이트로 막혀 있습니다 — `RUN_EXPERIMENTS=yes`이고 **또한** 스코프의 `CLAUDE.md`에 러너가 설정된 경우에만 실행되며(§12), 그렇지 않으면 설계 + handoff에서 멈춥니다.
+이 모드는 자동 결정 금지 원칙을 깨기 때문에 **opt-in이며 플러그인 코어 바깥**에 있습니다(스킬이 아니라 프로젝트 로컬 파일). 안전장치는 계약에 내장되어 있습니다: 스코프당 lock, 스코프 *바깥*에 두는 ledger(`EVOLUTION.md` §8), iteration당 표적 상한(`MAX_TARGETS`, 기본 2), 되돌릴 수 있는 `deprecate`(절대 삭제 안 함), 감사를 위한 이중 로깅(`E####.md` + 건드린 `targets`를 담는 ledger 한 줄). 실제 실험 실행은 게이트로 막혀 있습니다 — `RUN_EXPERIMENTS=yes`이고 **또한** 스코프의 `CLAUDE.md`에 러너가 설정된 경우에만 실행되며(§12), 그렇지 않으면 설계 + handoff에서 멈춥니다.
 
 **어디서 도는가:** `/loop`은 **로컬이며 세션에 묶입니다** — 발화하려면 Claude Code 세션이 열려 있고 머신이 깨어 있어야 합니다(닫히거나 슬립 상태의 노트북에서는 돌지 않습니다). 이 템플릿은 **dynamic 전용**(맨손 `/loop`, self-paced)입니다 — 그 self-pacing이 `MAX_ITERS`를 강제하고 스스로 멈추게 하며, 맨손 `/loop`에서만 작동하니 인터벌을 주지 마세요. 고정 벽시계 일정(예: 야간)이나 노트북을 닫은 채 무인 실행하려면 Anthropic 관리 인프라에서 도는 클라우드 [Routines](https://code.claude.com/docs/en/routines.md)(`/schedule`)를 쓰세요 — `/loop`이 아닙니다. 템플릿 헤더는 간결한 계약서이고, **[자율 루프 가이드](templates/loop.guide.ko.md)**가 긴 설명(무엇·왜·검증 방법·실행 모델·정확한 명령)입니다.
 
