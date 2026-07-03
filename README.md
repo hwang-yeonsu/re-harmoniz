@@ -4,7 +4,7 @@
 
 > **An evolution loop for research wikis** — a Claude Code plugin (`reharm`).
 
-**re:Harmoniz = re·search + re·harmoniz·ation.** Like a musician reharmonizes a melody — keeping the tune, re-deriving the chords beneath it — re:Harmoniz keeps your research *question* fixed and re-derives the **claims and evidence underneath it**, generation after generation.
+**re:Harmoniz = re·search + re·harmoniz·ation.** Hold your research *question* fixed and re-derive what sits beneath it — the **claims, and the evidence they rest on** — generation after generation. (The name borrows *reharmonization* from music: keep the melody, rework the chords under it.)
 
 Knowledge lives as atomic **claim** nodes that harden under two pressures: **mutation** (revision) and **natural selection** (adversarial verification). A 1st-generation claim is a bare assertion; a 10th-generation claim has absorbed its refutations, cites independent sources, and carries real-world field evidence. Only nodes that *survive* refutation gain a generation — so the wiki's average reliability rises monotonically.
 
@@ -48,6 +48,8 @@ Run it whenever new material or new doubt piles up. Nothing is auto-decided: you
 | `reharm:pushing` | Orientation (read-only). Reads the scope's current wiki + evolution state and recommends the next move — seed, evolve, adjudicate, or escalate stuck evidence to deep research — with the evidence behind it. Changes nothing; you decide. |
 | `reharm:experiment-design` | Field-experiment designer. For a claim stuck at the `hardened → evergreen` gate, it **pre-registers** the experiment that would confirm or refute it — hypothesis, a CONFIRM/REFUTE criterion fixed before the run, the conditions to record — then hands a plain-language goal to an external runner (e.g. `autoresearch`). Designs and records only; never runs code. |
 | `reharm:ensemble` | Answer synthesis — the loop's **exit**. Assembles what survived into one `deliverables/` page that answers the scope's central question: every load-bearing sentence cites its node with a (status · confidence · generation) snapshot, the weakest load-bearing claim sets the confidence floor, and open caveats stay on the record. Update-in-place; node states never change. |
+
+> **Not sure which to run?** [`docs/SKILLS.md`](docs/SKILLS.md) is a friendly, situation-first guide — *"I want to X → run Y"* — that says what each skill does and won't touch. (Or just run `reharm:pushing` and it names the next move for you.)
 
 ## Usage scenarios
 
