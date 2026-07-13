@@ -4,6 +4,22 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] — 2026-07-13
+
+**Loops terminate explicitly — `Esc` is gone from the stop guidance.** Building on 0.12.1: the docs
+no longer tell anyone to press `Esc` to stop a loop, and the early-stop instruction is no longer
+forked by mode. A loop ends itself explicitly — dynamic stops re-arming its wakeup, interval
+CronDeletes its own recurring job — and to stop early you just tell the loop to stop. From the user's
+side there is one mode-agnostic line and no key to press.
+
+### Changed
+
+- **Removed every `Esc` reference from the loop docs** (`templates/loop.md`, `templates/loop.guide.md`,
+  `templates/loop.guide.ko.md`, `skills/loop-setup/SKILL.md`, `README.md`, `README.ko.md`,
+  `docs/SKILLS.md`, `docs/SKILLS.ko.md`) and unified the early-stop instruction to a single "tell the
+  loop to stop; it terminates explicitly" line. The internal termination mechanics (not re-arming /
+  CronDelete) are unchanged — only the user-facing guidance is simplified.
+
 ## [0.12.1] — 2026-07-13
 
 **Fix: `Esc` is not a stop mechanism for interval loops.** The loop docs listed `Esc` as a way to

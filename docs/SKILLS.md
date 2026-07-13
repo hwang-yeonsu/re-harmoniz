@@ -115,7 +115,7 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 **What it won't do:** it decides nothing about knowledge. The unattended auto-decisions live in the loop template it writes (see the [autonomous-loop guide](../templates/loop.guide.md)), and they activate only after you answer the interview and the loop starts.
 
-**Then what:** keep the session open and the machine awake; `Esc` stops the loop; re-run the wizard after a plugin upgrade to pick up template fixes.
+**Then what:** keep the session open and the machine awake; to stop it early, tell the loop to stop and it ends itself explicitly; re-run the wizard after a plugin upgrade to pick up template fixes.
 
 **Just say:** *"reharm loop setup"*, *"start the evolution loop"*, *"자율 루프 설정"*, *"루프 시작"*.
 
