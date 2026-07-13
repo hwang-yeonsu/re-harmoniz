@@ -4,6 +4,38 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-07-13
+
+**Autonomous loop: interval mode + clearer contract.** Review-driven release; no skill or protocol
+changes. Re-verified the native `/loop` internals on Claude Code 2.1.207: an interval-only
+`/loop 2h` now also reads `.claude/loop.md` (via a dedicated `<<loop.md>>` cron sentinel,
+re-expanded from disk each fire), and a cron loop can end itself by `CronDelete`-ing its own job —
+so the old "dynamic-only, an interval can't stop itself" rationale no longer holds as an absolute.
+
+### Added
+
+- **`templates/loop.md` — interval mode** (`/loop 2h`, interval ONLY — a prompt would bypass the
+  file). Step 6 NEXT now branches by invocation mode, detected from the firing's own text: dynamic
+  → re-arm `ScheduleWakeup` with `<<loop.md-dynamic>>` (omit to end, fail-safe); interval → do
+  nothing to continue (the cron re-fires), `CronList` + `CronDelete` the loop's job to end
+  (fail-open: a missed delete keeps firing no-op STOP ticks until `Esc` / 7-day expiry). Dynamic
+  stays the recommended default. `MAX_ITERS` / `STOP_ON` are enforced in both modes.
+- **Guides — "Compacting mid-run is safe (`/clear` is not)"** (`loop.guide.md` /
+  `loop.guide.ko.md`): the schedule lives in the CLI process, not the context; the runtime resets
+  its delivered-marker on compaction so the next firing re-feeds the full loop.md; state recovers
+  from the ledger tail. Verified in the 2.1.207 bundle (compact cleanup calls
+  `resetAutonomousLoopDelivered`).
+
+### Changed
+
+- **Experiment gate rewritten as "one switch, two prerequisites"** (template ACT step b + both
+  guides): `RUN_EXPERIMENTS` is the only knob you set; the runner entry point and the
+  code-workspace path are auto-checked scope facts. Same 3-AND semantics, no behavior change —
+  the presentation made all three look like user decisions.
+- **READMEs (EN/KO)** — the "dynamic-only, don't pass an interval" paragraphs replaced with the
+  two-mode contract (dynamic recommended, interval supported with its fail-open caveat) plus the
+  compact-vs-clear rule.
+
 ## [0.10.0] — 2026-07-02
 
 **`reharm:ensemble`** (protocol **v0.5 → v0.6**): the loop finally gets an *exit*. A scope can

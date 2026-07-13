@@ -186,13 +186,14 @@ my-vault/                       # 당신의 지식 베이스 루트 (예: Obsidi
 위의 모든 스킬은 **설계상 수동**입니다 — 표적도 당신이 고르고, 판정도 당신이 합니다(`EVOLUTION.md`의 "자동 결정은 없다"). 루프를 *무인(unattended)*으로 돌리고 싶을 때를 위해, 플러그인은 그 원칙을 일부러 내려놓는 템플릿을 함께 제공합니다: [`templates/loop.md`](templates/loop.md). 연구 프로젝트의 `.claude/loop.md`로 복사하고 `CONFIG` 블록을 채우면, 네이티브 `/loop` 명령이 **한 번 돌 때마다 iteration을 하나씩** 재실행합니다 — `reharm:pushing`이 다음 수를 고르고, 추천된 스킬이 실행되며, 메인 세션이 당신의 승인을 대행합니다.
 
 ```bash
-# 연구 프로젝트 루트에서 — 인자 없는 /loop이 .claude/loop.md를 읽습니다
-/loop                    # 유일한 호출 — dynamic, self-paced: MAX_ITERS를 강제하고, 할 일이 없거나 정체되면 스스로 멈춥니다
+# 연구 프로젝트 루트에서 — 프롬프트 없는 /loop(맨손 또는 인터벌만)이 .claude/loop.md를 읽습니다
+/loop                    # 권장 — dynamic, self-paced: MAX_ITERS를 강제하고, 할 일이 없거나 정체되면 스스로 멈춥니다
+/loop 2h                 # 지원 — 고정 간격; 자기 cron 작업을 지워서 종료합니다 (인터벌만, 프롬프트 금지)
 ```
 
 이 모드는 자동 결정 금지 원칙을 깨기 때문에 **opt-in이고 플러그인 코어 바깥**에 둡니다(스킬이 아니라 프로젝트 로컬 파일). 안전장치는 계약에 못 박혀 있습니다: 스코프당 lock, 스코프 *바깥*에 두는 ledger(`EVOLUTION.md` §8), iteration당 표적 상한(`MAX_TARGETS`, 기본 2), 되돌릴 수 있는 `deprecate`(절대 삭제하지 않음), 감사를 위한 이중 로깅(`E####.md` + 건드린 `targets`를 적는 ledger 한 줄). 실제 실험 실행은 게이트로 막혀 있습니다 — `RUN_EXPERIMENTS=yes`이면서 **동시에** 스코프의 `CLAUDE.md`에 러너가 설정된 경우에만 돌아가고(§12), 그렇지 않으면 설계 + handoff에서 멈춥니다.
 
-**어디서 도는가:** `/loop`은 **로컬이고 세션에 묶여 있습니다** — 돌아가려면 Claude Code 세션이 열려 있고 머신이 깨어 있어야 합니다(닫히거나 잠든 노트북에서는 돌지 않습니다). 이 템플릿은 **dynamic 전용**(인자 없는 `/loop`, self-paced)입니다 — 바로 그 self-pacing이 `MAX_ITERS`를 강제하고 스스로 멈추게 합니다. 인자 없는 `/loop`에서만 작동하니 인터벌은 주지 마세요. 고정된 벽시계 일정(예: 야간)이나 노트북을 닫은 채 무인으로 돌리려면, Anthropic 관리 인프라에서 실행되는 클라우드 [Routines](https://code.claude.com/docs/en/routines.md)(`/schedule`)를 쓰세요 — `/loop`이 아닙니다. 템플릿 헤더는 간결한 계약서이고, 긴 설명(무엇·왜·어떻게 검증하는지·실행 모델·정확한 명령)은 **[자율 루프 가이드](templates/loop.guide.ko.md)**에 있습니다.
+**어디서 도는가:** `/loop`은 **로컬이고 세션에 묶여 있습니다** — 돌아가려면 Claude Code 세션이 열려 있고 머신이 깨어 있어야 합니다(닫히거나 잠든 노트북에서는 돌지 않습니다). 템플릿은 두 모드 어느 쪽으로도 돕니다: 맨손 `/loop`(**dynamic**, self-paced — 권장; 종료가 fail-safe라서, 다음 깨어남을 재예약하지 않는 것만으로 멈춥니다) 또는 인터벌만 준 `/loop 2h`(**고정 간격** — 루프가 자기 cron 작업을 직접 지워야 끝나고, 지우기를 놓치면 no-op tick이 `Esc` / 7일 만료까지 반복됩니다). 인터벌과 함께 프롬프트를 주지 마세요 — 프롬프트가 있으면 `.claude/loop.md`를 건너뜁니다. 도중 compact는 안전하고(상태는 ledger에 있고, 다음 발화가 파일 전문을 다시 읽습니다) `/clear`는 스케줄을 죽입니다. 고정된 벽시계 일정(예: 야간)이나 노트북을 닫은 채 무인으로 돌리려면, Anthropic 관리 인프라에서 실행되는 클라우드 [Routines](https://code.claude.com/docs/en/routines.md)(`/schedule`)를 쓰세요 — `/loop`이 아닙니다. 템플릿 헤더는 간결한 계약서이고, 긴 설명(무엇·왜·어떻게 검증하는지·실행 모델·정확한 명령)은 **[자율 루프 가이드](templates/loop.guide.ko.md)**에 있습니다.
 
 ## 언어
 

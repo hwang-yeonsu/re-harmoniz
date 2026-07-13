@@ -56,7 +56,7 @@ Run exactly once per firing, in this order:
 | 03 | **ACT** | Perform **exactly one** action for `R`, auto-deciding every choice per the DECISION POLICY. |
 | 04 | **RECORD** | Append one JSONL line to the ledger. This is the loop's **only** state. |
 | 05 | **UNLOCK** | Remove `<ledger>.lock`. |
-| 06 | **NEXT ↺** | Schedule the next wakeup (ScheduleWakeup, prompt `<<loop.md-dynamic>>`, 1200–1800 s), or **omit it to end** — that is how the run self-terminates at `MAX_ITERS` or a stop reason. |
+| 06 | **NEXT ↺** | Dynamic mode: schedule the next wakeup (ScheduleWakeup, prompt `<<loop.md-dynamic>>`, 1200–1800 s), or **omit it to end**. Interval mode: do nothing to continue (the cron re-fires), or **CronDelete the loop's job to end**. Either way, this is how the run self-terminates at `MAX_ITERS` or a stop reason. |
 
 ---
 
@@ -67,11 +67,11 @@ the native `/loop` command *actually* behaves. It does — point by point:
 
 | What native `/loop` actually does | How `loop.md` is designed for it |
 |-----------------------------------|----------------------------------|
-| Bare `/loop` reads `.claude/loop.md`. | The template is copied to exactly that path. |
+| `/loop` with no prompt — bare **or** interval-only (`/loop 2h`) — reads `.claude/loop.md`. | The template is copied to exactly that path. |
 | It re-reads the file **every firing** (full text on the first fire / after an edit / post-compact, else a short reminder while the full text stays in context) — it does not rely on prior chat memory. | State is recovered from the **ledger tail** (`N` = completed iterations), not from the conversation. The file is self-contained. |
 | `dynamic` mode self-paces via a scheduled wakeup, and **omitting the wakeup ends the loop**. | Step 6 (`dynamic`): with no stop reason, re-arm the wakeup with `prompt = <<loop.md-dynamic>>` (the sentinel the runtime re-expands to this file — not the string "/loop"); with a stop reason, omit it → end. This is how `MAX_ITERS` and stop conditions are enforced. |
 | The dynamic wakeup delay is bounded (≈ 1 min – 1 h) and the prompt cache has a ~5-minute window. | The template picks **1200–1800 s** — past the cache window to keep cost sane, and it does not poll. |
-| A fixed-interval `/loop` (`/loop 6h`) fires on a clock **the prompt cannot stop**, and `.claude/loop.md` is the default prompt for **bare** `/loop` anyway. | So the template is **bare-`/loop`-only** — never pass an interval. Self-pacing (which enforces `MAX_ITERS` / `STOP_ON`) works only for a dynamic `/loop`; a fixed interval would ignore them and run until `Esc` / 7-day expiry. |
+| An **interval-only** `/loop 2h` also reads `.claude/loop.md`: it schedules a recurring cron whose prompt is the `<<loop.md>>` sentinel, re-expanded from disk each fire — but the cron keeps firing until the job is deleted. | So interval mode is **supported**: step 6 ends the run by finding the loop's own cron job (CronList) and **CronDelete**-ing it. Dynamic stays the default because its ending is fail-safe (just don't re-arm). Never pass a *prompt* with the interval — `/loop 2h <prompt>` bypasses loop.md entirely. |
 | Two instances could run the same file at once. | Step 0 **LOCK** rejects a second concurrent run with `STOP("overlap")`. One loop per scope. |
 
 ---
@@ -91,7 +91,7 @@ second for a due task and fires it *between turns* (never mid-response). So "idl
 *alive and waiting for input*, **not** asleep: if the terminal closes, the process exits,
 or the machine sleeps and the OS suspends the process, nothing fires.
 
-So for this template (it runs as a bare, dynamic `/loop`):
+So for this template (it runs as a bare `/loop`, or an interval-only `/loop 2h`):
 
 - The **Claude Code session must stay open** (terminal or `claude.ai/code` session). Close it and the loop stops.
 - The **machine must stay powered on and awake**. The loop runs inside the local CLI process; a closed/sleeping laptop does not fire it.
@@ -121,6 +121,23 @@ preview; limits and the API may change. Sources:
 [scheduled-tasks](https://code.claude.com/docs/en/scheduled-tasks.md),
 [routines](https://code.claude.com/docs/en/routines.md).)
 
+### Compacting mid-run is safe (`/clear` is not)
+
+A long run **will** hit context compaction, and the loop is built for it:
+
+- The pending wakeup / cron job lives in the **CLI process**, not the conversation
+  context — compaction (auto, or a manual `/compact` typed between ticks) does not
+  touch the schedule.
+- The runtime resets its "loop.md already delivered" marker on compaction, so the
+  **next firing re-feeds the full loop.md text** instead of the short reminder.
+- The loop's state was never in the chat to begin with — every firing recovers `N`
+  and the last decision from the **ledger tail**.
+
+So nothing special is needed: let auto-compact happen, or `/compact` manually while
+the loop is idle between ticks, and the next tick continues where the ledger says.
+What is **not** safe is `/clear` (or starting a fresh conversation): that clears the
+scheduled tasks themselves and the loop dies silently — restart it with `/loop`.
+
 ---
 
 ## Safeguards
@@ -136,19 +153,23 @@ Autonomy without an undo button is reckless; the contract bakes in six:
 
 ---
 
-## Experiment execution — the 3-AND gate
+## Experiment execution — one switch, two prerequisites
 
 `experiment-design` always **designs** (pre-registers a `planned` node + a `## Handoff`
-block). Running the *real* experiment is gated on three conditions, all required:
+block). Whether the *real* experiment then launches comes down to **one switch you set**
+— `RUN_EXPERIMENTS` in CONFIG — plus **two prerequisites the loop checks automatically**
+at launch time (they are facts about your scope, not decisions):
 
 ```
-RUN_EXPERIMENTS = yes
-  AND  a runner entry point is set   (node  runner:  OR scope CLAUDE.md §6 Toggles)
-  AND  the code-workspace path exists (scope CLAUDE.md §2 / §12)
+you set        RUN_EXPERIMENTS = yes            ← the only knob; no = never runs code
+auto-checked   a runner entry point is set      (node  runner:  OR scope CLAUDE.md §6 Toggles)
+auto-checked   the code-workspace path exists   (scope CLAUDE.md §2 / §12)
 ```
 
-If any one is missing, the loop **stops after DESIGN + handoff** and records
-`gate = "exec-blocked"`.
+All three are mechanical lookups — no judgement calls. If any is missing, the loop
+**stops after DESIGN + handoff** and records `gate = "exec-blocked"`: with
+`RUN_EXPERIMENTS: no` the loop simply never runs code, and with `yes` it still cannot
+launch into a scope that lacks a runner or a workspace.
 
 **Launching is fire-and-return.** The loop launches the run in the background
 (`run_in_background`, or submits it to the external runner) and **does not wait** — blocking
@@ -162,25 +183,35 @@ asynchronously in `.raw/experiments-results/`; the loop never judges the raw res
 along with normal evolution work — the experiment runs in parallel and usually needs no dedicated
 poll (the normal 1200–1800 s cadence). Only when there is nothing else to do does the loop enter a
 short poll: **~240 s** for a short/unknown run (inside the 5-min cache window), or **1200 s+** for a
-known-long one; **never 300 s**. One experiment at a time. If a run exceeds `EXP_TIMEOUT` with no
-result, the node is set `abandoned` and the loop stops with `exec-blocked-needs-human`.
+known-long one; **never 300 s**. (The short poll is a dynamic-mode move — in interval mode the
+cadence is fixed, so a running experiment is simply re-checked on the next tick.) One experiment at
+a time. If a run exceeds `EXP_TIMEOUT` with no result, the node is set `abandoned` and the loop
+stops with `exec-blocked-needs-human`.
 
 ---
 
-## Dynamic-only — and why not cron
+## Two invocation modes — dynamic (default) vs interval
 
-This template runs as a **bare `/loop`** (dynamic, self-paced). It deliberately does **not**
-support a fixed-interval / cron invocation, because:
+The template runs under either `/loop` form — both re-read `.claude/loop.md` every firing,
+and both enforce `MAX_ITERS` / `STOP_ON`. They differ in **who paces** and **how the run ends**:
 
-- The loop enforces `MAX_ITERS` / `STOP_ON` by choosing whether to schedule its own next wakeup —
-  and that self-pacing works **only** for a bare `/loop`.
-- A fixed-interval `/loop` (`/loop 6h`) hands pacing to a scheduler the prompt **cannot stop**; it
-  would ignore `MAX_ITERS` / `STOP_ON` and run until `Esc` or the 7-day expiry.
-- `.claude/loop.md` is the default prompt for bare `/loop` regardless.
+| | **Dynamic** — bare `/loop` (recommended) | **Interval** — `/loop 2h` (interval only) |
+|---|---|---|
+| Pacing | The loop picks each delay (1200–1800 s normally, short poll while experiment-waiting) | Fixed cadence: exactly one tick per interval |
+| How it ends | **Fail-safe**: just don't re-arm the next wakeup — forgetting to act ends the loop | **Fail-open**: the loop must CronDelete its own cron job; a missed delete keeps firing no-op `STOP` ticks until `Esc` / 7-day expiry |
+| Prompt to the runtime | `ScheduleWakeup` with the `<<loop.md-dynamic>>` sentinel | A recurring cron with the `<<loop.md>>` sentinel, created at invocation |
+| Feature gates it rides | loop.md loading **and** the dynamic wakeup (two flags) | loop.md loading only (one flag) |
 
-So there is **no `MODE` to set and no interval to pass** — just `/loop`. If you need a fixed
-wall-clock schedule (e.g. nightly) or a run that survives a closed laptop, that is a job for cloud
-**Routines** (`/schedule`), not this template — see Execution model above.
+The loop tells the modes apart from the firing's own text — a dynamic tick says "re-arm
+ScheduleWakeup", an interval tick says "the recurring cron fires the next tick automatically" —
+so there is still **no `MODE` field to configure**; the invocation is the single source of truth.
+
+Two hard rules for interval mode: pass the **interval only** (`/loop 2h <prompt>` would use the
+prompt *instead of* loop.md), and accept that a stop reason takes effect by an explicit
+CronDelete. Dynamic remains the default recommendation because its ending needs no action at all.
+
+If you need a run that survives a closed laptop, neither mode helps — that is a job for cloud
+**Routines** (`/schedule`), not this template; see Execution model above.
 
 ---
 
@@ -203,21 +234,23 @@ LEDGER:          /abs/your-project/.reharm-loop/scope.jsonl   # OUTSIDE the scop
 ```
 
 ```bash
-# 3. From the project root, bare /loop reads .claude/loop.md
-/loop                     # the only invocation — dynamic, bounded by MAX_ITERS / self-terminating
+# 3. From the project root, /loop (bare or interval-only) reads .claude/loop.md
+/loop                     # recommended — dynamic, bounded by MAX_ITERS / self-terminating
+/loop 2h                  # supported — fixed cadence; ends itself by CronDeleting its own job
 ```
 
 One loop per scope (the lock enforces it). Stop any time with `Esc`. Keep the session
 open and the machine awake for the duration — or switch to cloud Routines for a
-laptop-closed run.
+laptop-closed run. Compacting mid-run is fine (see above); `/clear` kills the loop.
 
 ---
 
 ## Limits & gotchas
 
-- **Feature-gated — smoke-test first.** Two things this template rides on are gated by your Claude Code build (rollout flags, not a fixed version): bare `/loop` reading `.claude/loop.md`, and the dynamic self-pacing wakeup (`ScheduleWakeup`) itself. If either is off, `/loop` ignores loop.md or runs a single tick and stops (the wakeup silently no-ops) — `MAX_ITERS` never engages. Before trusting an overnight run, do a one-tick smoke test: run `/loop`, confirm the first turn actually loads this file (CONFIG + LEDGER) **and** that it arms a next wakeup. Confirmed working on Claude Code 2.1.197.
+- **Feature-gated — smoke-test first.** What this template rides on is gated by your Claude Code build (rollout flags, not a fixed version): `/loop` (bare or interval-only) reading `.claude/loop.md`, and — dynamic mode only — the self-pacing wakeup (`ScheduleWakeup`). If a flag is off, `/loop` ignores loop.md, or a dynamic run does a single tick and stops (the wakeup silently no-ops) — `MAX_ITERS` never engages. Before trusting an overnight run, do a one-tick smoke test: run `/loop`, confirm the first turn actually loads this file (CONFIG + LEDGER) **and** that it arms a next wakeup (dynamic) or created the recurring cron job (interval). Confirmed working on Claude Code 2.1.197; interval-mode loop.md loading (the `<<loop.md>>` cron sentinel) verified on 2.1.207.
 - **Not laptop-closed.** `/loop` needs the session open and the machine awake. See Execution model.
 - **7-day expiry** on recurring tasks; `--resume` restores unexpired ones.
-- **Bare `/loop` only — don't pass an interval.** A fixed-interval `/loop` can't stop itself (runs until `Esc` / 7-day expiry) and ignores `MAX_ITERS` / `STOP_ON`; self-pacing needs a dynamic `/loop`.
+- **Interval mode: interval ONLY, and ending is on the loop.** `/loop 2h <prompt>` bypasses loop.md (the prompt wins), and a stop reason ends the run only through the loop's own CronDelete — if that call is missed/denied, no-op STOP ticks keep firing until `Esc` / the 7-day expiry. Dynamic mode has neither trap.
+- **Compact ≠ clear.** `/compact` (and auto-compact) mid-run is safe; `/clear` or a fresh conversation silently kills the schedule.
 - **One scope per loop.** The lock enforces it; point a second loop at a different scope.
-- **Experiments stay gated.** Without all three gate conditions, the loop stops at design + handoff — by design.
+- **Experiments stay gated.** With `RUN_EXPERIMENTS: no` — or `yes` but a missing runner/workspace prerequisite — the loop stops at design + handoff — by design.

@@ -3,8 +3,9 @@
 <!-- first fire / after an edit / post-compact, else a short reminder while the full text persists in -->
 <!-- context), so it must stay self-contained and recover its state from the LEDGER, not from chat memory. -->
 <!-- It runs the existing /reharm:* skills; it is NOT a plugin skill itself. Invocation is at the bottom. -->
-<!-- DYNAMIC-ONLY: this is the default prompt for a bare /loop (self-paced). Do NOT pass an interval — -->
-<!-- a fixed-interval /loop cannot enforce MAX_ITERS or stop itself. For wall-clock schedules use Routines. -->
+<!-- MODES: bare /loop (dynamic, self-paced — RECOMMENDED) or /loop <interval> (fixed cadence — supported; -->
+<!-- ends itself via CronDelete). Never add a prompt after the interval — a prompt bypasses this file. -->
+<!-- For a schedule that must survive a closed laptop use Routines, not /loop. -->
 
 # re:Harmoniz Autonomous Evolution Loop — one iteration
 
@@ -18,9 +19,12 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 
 ## CONFIG — fill in, then leave fixed
 - SCOPE:           «absolute path to the scope (must contain .raw/ + wiki/)»
-- MAX_ITERS:       «N | inf»          ← enforced by self-pacing (dynamic /loop only); state is in the LEDGER
+- MAX_ITERS:       «N | inf»          ← enforced by step 6 NEXT in both modes; state is in the LEDGER
 - MAX_TARGETS:     «N, default 2»     ← Phase B auto-pick cap per iteration (reharmonization only)
-- RUN_EXPERIMENTS: «no | yes»         ← yes LAUNCHES real code (fire-and-return, then polled); gated below
+- RUN_EXPERIMENTS: «no | yes»         ← the only experiment switch you set: no = design + handoff only,
+                                        never runs code; yes = may LAUNCH real code (fire-and-return,
+                                        then polled), still subject to the GATE's two auto-checked
+                                        scope prerequisites (ACT step b)
 - EXP_TIMEOUT:     «duration | none»  ← a running experiment older than this → abandoned (no infinite wait)
 - SIBLING_SCOPE:   «absolute path | none»   ← donor scope for modal-interchange
 - STOP_ON:         reseed, change-strategy   ← stagnation verdicts that halt the loop
@@ -84,10 +88,12 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
                 (a) DESIGN  : `/reharm:experiment-design «the chosen claim»`
                               → pre-registration node (status: planned) + a ## Handoff block.
                               If a `planned` node already exists, reuse it and go to (b).
-                (b) EXECUTE : launch the real experiment ONLY if the GATE passes —
-                              RUN_EXPERIMENTS = yes
-                              AND a runner entry point is set (node `runner:` OR SCOPE/CLAUDE.md §6 Toggles)
-                              AND the code-workspace path exists (SCOPE/CLAUDE.md §2 Metadata).
+                (b) EXECUTE : launch the real experiment ONLY if the GATE passes. The GATE is one switch
+                              plus two auto-checked prerequisites — all three are mechanical lookups,
+                              never judgement calls:
+                              1. RUN_EXPERIMENTS = yes         (CONFIG — the only part you set)
+                              2. runner entry point is set     (node `runner:` OR SCOPE/CLAUDE.md §6 Toggles)
+                              3. code-workspace path exists    (SCOPE/CLAUDE.md §2 Metadata)
                               • Pass → FIRE-AND-RETURN: launch the ## Handoff command in the BACKGROUND
                                        (run_in_background, or submit to the external runner) — do NOT wait
                                        for it (blocking would hold the lock for the whole run). Flip the
@@ -106,36 +112,43 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
              "ts": "<ISO 8601 timestamp>", "stop": <null|"<reason>">}
             (For an experiment "launched" line, this ts IS the launch time JUDGE reads back for EXP_TIMEOUT.)
 5. UNLOCK — remove `<LEDGER>.lock`.
-6. NEXT   — if there is NO stop reason, call ScheduleWakeup with prompt set to the literal sentinel
-            `<<loop.md-dynamic>>` — NOT "/loop" or an empty string (neither is the sentinel). The runtime
-            re-expands `<<loop.md-dynamic>>` to this file at fire time and reminds you of the same each tick.
-            Then choose the delay:
-            • normal iteration (did evolution work, or no experiment running)  → delay 1200–1800s.
-            • R = wait (only an experiment in flight, nothing else to do)       → poll: ~240s if the
-              experiment is short/unknown (stays inside the 5-min cache window), or 1200s+ if it is
-              known to be long. Avoid 300s (a cache miss that isn't even long).
-            If there IS a stop reason, omit the call — that ends the loop.
-            (Self-pacing is what enforces MAX_ITERS / STOP_ON and works only for a bare, dynamic /loop —
-             hence dynamic-only. Heavy iterations (web search + 3 refuters) want the long delay; don't
-             poll those. Only a bare experiment-wait uses the short poll.)
+6. NEXT   — continue or end per the INVOCATION MODE. The firing's own text tells you which mode you are
+            in: a dynamic tick instructs you to re-arm ScheduleWakeup; an interval tick says the recurring
+            cron fires the next tick automatically. Follow that instruction:
+            • DYNAMIC (bare /loop) — no stop reason → call ScheduleWakeup with prompt set to the literal
+              sentinel `<<loop.md-dynamic>>` — NOT "/loop" or an empty string (neither is the sentinel);
+              the runtime re-expands it to this file at fire time. Delay: normal iteration → 1200–1800s;
+              R = wait (only an experiment in flight, nothing else to do) → poll ~240s if the run is
+              short/unknown (stays inside the 5-min cache window; avoid 300s), 1200s+ if known-long.
+              Heavy iterations (web search + 3 refuters) always take the long delay — never poll those.
+              A stop reason → OMIT the ScheduleWakeup call; that ends the loop.
+            • INTERVAL (/loop <interval>) — no stop reason → do NOTHING (the cron re-fires by itself;
+              never call ScheduleWakeup in this mode). A stop reason → CronList, find this loop's
+              recurring job, CronDelete it — that ends the loop. (If the delete fails, the next tick
+              re-derives the same stop from the LEDGER and retries; tell the user to Esc if it keeps
+              failing.) The cadence is fixed, so there is no experiment short-poll in this mode — a
+              running experiment is simply re-checked on the next tick.
 
 ## STOP reasons (always written to ledger `stop`)
 count-reached · nothing-pending · stagnation:reseed · stagnation:change-strategy ·
 action-error · overlap · bad-scope · exec-blocked-needs-human
 
 Any stop reached AFTER this iteration took the lock (step 0) still completes RECORD (the ledger line, with
-`stop` set) and UNLOCK before ending — a stop reason only omits the step-6 ScheduleWakeup; it never skips
-releasing the lock. The one exception is `overlap` (and a pre-lock `bad-scope`): the lock belongs to another
+`stop` set) and UNLOCK before ending — a stop reason only changes step 6 (dynamic: omit the wakeup;
+interval: CronDelete the loop's cron job); it never skips releasing the lock. The one exception is `overlap` (and a pre-lock `bad-scope`): the lock belongs to another
 live iteration, so exit without recording or removing it.
 
-## How to invoke — run from the research project root; bare /loop re-runs THIS file
-This template is DYNAMIC-ONLY. Invoke it as a bare `/loop` with NO interval:
-- Bounded run (stops at MAX_ITERS, or earlier on a stop reason):  `/loop`     (set MAX_ITERS: N)
-- Open-ended, self-terminating when idle or stagnant:             `/loop`     (set MAX_ITERS: inf)
-Why no interval: the main session enforces MAX_ITERS / STOP_ON by choosing whether to schedule its own
-next wakeup, which works only for a bare (self-paced) /loop. Passing an interval (`/loop 6h`) hands pacing
-to a fixed scheduler the prompt CANNOT stop — it would ignore MAX_ITERS / STOP_ON and run until Esc or the
-7-day expiry. (`.claude/loop.md` is the default prompt for bare /loop anyway.) Run one loop per scope.
-This loop is LOCAL + session-scoped: the session must stay open AND the machine awake to fire (a closed or
-sleeping laptop will not run it). For a fixed wall-clock schedule (e.g. nightly) or a laptop-closed,
-unattended run, use cloud Routines (`/schedule`) — NOT this template.
+## How to invoke — run from the research project root; both forms re-read THIS file each firing
+- RECOMMENDED — dynamic, self-paced:  `/loop`      (delay chosen per tick; ending = not re-arming — fail-safe)
+- SUPPORTED  — fixed cadence:         `/loop 2h`   (interval ONLY — `/loop 2h <prompt>` would bypass this file)
+Both modes enforce MAX_ITERS / STOP_ON via step 6 (set MAX_ITERS: N for a bounded run, inf for open-ended).
+Why dynamic is the default: its ending is fail-safe — the loop ends by NOT re-arming its own wakeup —
+while interval mode keeps firing until the loop actively CronDeletes its job; a missed delete means no-op
+STOP ticks until Esc or the 7-day expiry. Pick interval mode when a predictable wall-clock cadence is
+worth that trade. Run one loop per scope.
+Either way the loop is LOCAL + session-scoped: the session must stay open AND the machine awake to fire
+(a closed or sleeping laptop will not run it). Mid-run compaction (auto, or a manual /compact between
+ticks) is SAFE: the schedule lives in the process, not the context; the next firing re-feeds this file in
+full; state is in the LEDGER. /clear or a fresh conversation KILLS the schedule. For a fixed wall-clock
+schedule (e.g. nightly) or a laptop-closed, unattended run, use cloud Routines (`/schedule`) — NOT this
+template.
