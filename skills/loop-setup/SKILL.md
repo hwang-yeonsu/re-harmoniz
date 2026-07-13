@@ -60,7 +60,8 @@ loop starts.
    (its CONFIG/LEDGER visibly drove the turn) and (b) the next firing is armed — a ScheduleWakeup
    (dynamic) or the recurring cron job (interval). If loop.md was ignored or no next firing exists,
    the build's loop feature gates are off — say so plainly and stop; do not fake a loop by hand.
-   Close by telling the user: keep the session open and the machine awake; `Esc` stops it;
+   Close by telling the user: keep the session open and the machine awake; a dynamic loop stops with
+   `Esc`, an interval loop is cancelled with `CronDelete` (`Esc` only skips the current tick);
    mid-run compaction is safe, `/clear` kills it.
 
 ## Constraints

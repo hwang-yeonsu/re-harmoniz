@@ -4,6 +4,24 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] — 2026-07-13
+
+**Fix: `Esc` is not a stop mechanism for interval loops.** The loop docs listed `Esc` as a way to
+end a run, but that only holds for **dynamic** mode (bare `/loop`), where `Esc` clears the pending
+`ScheduleWakeup`. In **interval** mode (`/loop <cadence>`) the run is a backend-registered cron job
+that fires independently of the session — `Esc` interrupts only the current tick, and the cron
+re-fires on schedule. The one true terminator there is `CronDelete` (or the 7-day expiry). Verified
+against the Claude Code scheduled-tasks docs.
+
+### Fixed
+
+- **Corrected the `Esc`-stops-the-loop claim across the loop docs** (`templates/loop.md`,
+  `templates/loop.guide.md`, `templates/loop.guide.ko.md`, `skills/loop-setup/SKILL.md`). Every
+  interval-mode terminator that read "until `Esc` / 7-day expiry" now names `CronDelete` (or "cancel
+  by job ID") as the actual stop and demotes `Esc` to "skips the current tick only." The general
+  "Stop any time with `Esc`" lines are split by mode: `Esc` for dynamic, `CronDelete` for interval.
+  The wizard close-out message (`loop-setup`) carries the same correction.
+
 ## [0.12.0] — 2026-07-13
 
 **One command to a running loop + experiments that work out of the box.** The eighth skill —

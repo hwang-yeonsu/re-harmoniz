@@ -213,7 +213,7 @@ Auto-compact; 환경변수에 `DISABLE_AUTO_COMPACT` 없음). 매 tick마다 com
 | | **Dynamic** — bare `/loop` (권장) | **Interval** — `/loop 2h` (인터벌만) |
 |---|---|---|
 | 페이싱 | 루프가 매번 지연을 고름 (평소 1200–1800초, 실험 대기 중엔 짧은 폴링) | 고정 간격: 인터벌당 정확히 한 tick |
-| 종료 방식 | **Fail-safe**: 다음 깨어남을 재예약하지 않으면 끝 — 잊어도 종료 | **Fail-open**: 루프가 자기 cron 작업을 CronDelete해야 끝 — 지우기를 놓치면 no-op `STOP` tick이 `Esc` / 7일 만료까지 반복 |
+| 종료 방식 | **Fail-safe**: 다음 깨어남을 재예약하지 않으면 끝 — 잊어도 종료 | **Fail-open**: 루프가 자기 cron 작업을 CronDelete해야 끝 — 지우기를 놓치면 no-op `STOP` tick이 CronDelete로 잡을 지우거나 7일 만료될 때까지 반복(`Esc`는 현재 tick만 건너뜀, cron은 제거 안 됨) |
 | 런타임에 넘기는 것 | `<<loop.md-dynamic>>` 센티넬로 `ScheduleWakeup` | 호출 시점에 만들어지는 `<<loop.md>>` 센티넬의 반복 cron |
 | 의존하는 기능 게이트 | loop.md 로딩 **+** dynamic 깨어남 (플래그 둘) | loop.md 로딩만 (플래그 하나) |
 
@@ -270,7 +270,8 @@ LEDGER:          /abs/your-project/.reharm-loop/scope.jsonl   # 스코프 바깥
 /loop 2h                  # 지원 — 고정 간격; 자기 cron 작업을 CronDelete해서 종료
 ```
 
-스코프당 루프 하나(lock이 강제). 언제든 `Esc`로 중단. 도는 동안 세션을 열어 두고 머신을
+스코프당 루프 하나(lock이 강제). dynamic 루프는 언제든 `Esc`로 중단, interval 루프는 `CronDelete`로 취소
+(`Esc`는 현재 tick만 건너뛰고 cron이 다시 발화함). 도는 동안 세션을 열어 두고 머신을
 깨워 두세요 — 닫은 채 돌리려면 클라우드 Routines로 전환하세요. 도중 compact는 괜찮고
 (위 참고), `/clear`는 루프를 죽입니다.
 
@@ -281,7 +282,7 @@ LEDGER:          /abs/your-project/.reharm-loop/scope.jsonl   # 스코프 바깥
 - **기능 게이트 — 먼저 스모크 테스트.** 이 템플릿이 타는 것들이 Claude Code 빌드에 게이팅됨(고정 버전이 아니라 롤아웃 플래그): `/loop`(bare 또는 인터벌만)의 `.claude/loop.md` 읽기, 그리고 — dynamic 모드만 — self-pacing 깨어남(`ScheduleWakeup`). 플래그가 꺼져 있으면 `/loop`이 loop.md를 무시하거나, dynamic 실행이 1회 tick 후 멈춤(깨어남이 조용히 no-op) — `MAX_ITERS`가 발동하지 않음. 야간 실행을 믿기 전 1-tick 스모크 테스트: `/loop` 실행 → 첫 턴이 이 파일(CONFIG + LEDGER)을 실제로 읽고 **다음 깨어남을 arm하는지(dynamic) 또는 반복 cron 작업을 만들었는지(interval)** 확인. Claude Code 2.1.197에서 동작 확인; interval 모드의 loop.md 로딩(`<<loop.md>>` cron 센티넬)은 2.1.207에서 확인.
 - **노트북 닫으면 안 됨.** `/loop`은 세션이 열려 있고 머신이 깨어 있어야 함. 실행 모델 참고.
 - **7일 만료** (반복 작업); `--resume`로 만료 전 작업 복원.
-- **interval 모드: 인터벌만, 종료는 루프 책임.** `/loop 2h <prompt>`는 loop.md를 건너뛰고(프롬프트가 이김), 정지 사유는 루프 자신의 CronDelete를 통해서만 발효됨 — 그 호출을 놓치거나 거부되면 no-op STOP tick이 `Esc` / 7일 만료까지 반복. dynamic 모드에는 두 함정 다 없음.
+- **interval 모드: 인터벌만, 종료는 루프 책임.** `/loop 2h <prompt>`는 loop.md를 건너뛰고(프롬프트가 이김), 정지 사유는 루프 자신의 CronDelete를 통해서만 발효됨 — 그 호출을 놓치거나 거부되면 no-op STOP tick이 CronDelete로 잡을 지우거나 7일 만료될 때까지 반복(`Esc`는 현재 tick만 건너뜀, cron은 제거 안 됨). dynamic 모드에는 두 함정 다 없음.
 - **compact ≠ clear.** 도중 `/compact`(그리고 auto-compact)는 안전; `/clear`나 새 대화는 스케줄을 소리 없이 죽임.
 - **루프당 스코프 하나.** lock이 강제; 두 번째 루프는 다른 스코프를 겨냥.
 - **실험은 게이트됨.** `RUN_EXPERIMENTS: no`이거나 — `yes`라도 runner/워크스페이스 사전조건이 빠지면 — 설계 + handoff에서 멈춤 — 의도된 동작.

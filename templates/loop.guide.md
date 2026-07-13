@@ -218,7 +218,7 @@ and both enforce `MAX_ITERS` / `STOP_ON`. They differ in **who paces** and **how
 | | **Dynamic** — bare `/loop` (recommended) | **Interval** — `/loop 2h` (interval only) |
 |---|---|---|
 | Pacing | The loop picks each delay (1200–1800 s normally, short poll while experiment-waiting) | Fixed cadence: exactly one tick per interval |
-| How it ends | **Fail-safe**: just don't re-arm the next wakeup — forgetting to act ends the loop | **Fail-open**: the loop must CronDelete its own cron job; a missed delete keeps firing no-op `STOP` ticks until `Esc` / 7-day expiry |
+| How it ends | **Fail-safe**: just don't re-arm the next wakeup — forgetting to act ends the loop | **Fail-open**: the loop must CronDelete its own cron job; a missed delete keeps firing no-op `STOP` ticks until you CronDelete the job / 7-day expiry (`Esc` only skips the current tick — it does not remove the cron) |
 | Prompt to the runtime | `ScheduleWakeup` with the `<<loop.md-dynamic>>` sentinel | A recurring cron with the `<<loop.md>>` sentinel, created at invocation |
 | Feature gates it rides | loop.md loading **and** the dynamic wakeup (two flags) | loop.md loading only (one flag) |
 
@@ -275,7 +275,8 @@ LEDGER:          /abs/your-project/.reharm-loop/scope.jsonl   # OUTSIDE the scop
 /loop 2h                  # supported — fixed cadence; ends itself by CronDeleting its own job
 ```
 
-One loop per scope (the lock enforces it). Stop any time with `Esc`. Keep the session
+One loop per scope (the lock enforces it). Stop a dynamic loop any time with `Esc`; an interval loop
+must be cancelled with `CronDelete` (`Esc` only skips the current tick, the cron re-fires). Keep the session
 open and the machine awake for the duration — or switch to cloud Routines for a
 laptop-closed run. Compacting mid-run is fine (see above); `/clear` kills the loop.
 
@@ -286,7 +287,7 @@ laptop-closed run. Compacting mid-run is fine (see above); `/clear` kills the lo
 - **Feature-gated — smoke-test first.** What this template rides on is gated by your Claude Code build (rollout flags, not a fixed version): `/loop` (bare or interval-only) reading `.claude/loop.md`, and — dynamic mode only — the self-pacing wakeup (`ScheduleWakeup`). If a flag is off, `/loop` ignores loop.md, or a dynamic run does a single tick and stops (the wakeup silently no-ops) — `MAX_ITERS` never engages. Before trusting an overnight run, do a one-tick smoke test: run `/loop`, confirm the first turn actually loads this file (CONFIG + LEDGER) **and** that it arms a next wakeup (dynamic) or created the recurring cron job (interval). Confirmed working on Claude Code 2.1.197; interval-mode loop.md loading (the `<<loop.md>>` cron sentinel) verified on 2.1.207.
 - **Not laptop-closed.** `/loop` needs the session open and the machine awake. See Execution model.
 - **7-day expiry** on recurring tasks; `--resume` restores unexpired ones.
-- **Interval mode: interval ONLY, and ending is on the loop.** `/loop 2h <prompt>` bypasses loop.md (the prompt wins), and a stop reason ends the run only through the loop's own CronDelete — if that call is missed/denied, no-op STOP ticks keep firing until `Esc` / the 7-day expiry. Dynamic mode has neither trap.
+- **Interval mode: interval ONLY, and ending is on the loop.** `/loop 2h <prompt>` bypasses loop.md (the prompt wins), and a stop reason ends the run only through the loop's own CronDelete — if that call is missed/denied, no-op STOP ticks keep firing until you CronDelete the job / the 7-day expiry (`Esc` only skips the current tick, it does not remove the cron). Dynamic mode has neither trap.
 - **Compact ≠ clear.** `/compact` (and auto-compact) mid-run is safe; `/clear` or a fresh conversation silently kills the schedule.
 - **One scope per loop.** The lock enforces it; point a second loop at a different scope.
 - **Experiments stay gated.** With `RUN_EXPERIMENTS: no` — or `yes` but a missing runner/workspace prerequisite — the loop stops at design + handoff — by design.

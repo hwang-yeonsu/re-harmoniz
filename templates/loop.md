@@ -139,8 +139,10 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
             • INTERVAL (/loop <interval>) — no stop reason → do NOTHING (the cron re-fires by itself;
               never call ScheduleWakeup in this mode). A stop reason → CronList, find this loop's
               recurring job, CronDelete it — that ends the loop. (If the delete fails, the next tick
-              re-derives the same stop from the LEDGER and retries; tell the user to Esc if it keeps
-              failing.) The cadence is fixed, so there is no experiment short-poll in this mode — a
+              re-derives the same stop from the LEDGER and retries; if the delete keeps failing, tell
+              the user to cancel the cron manually — CronList → CronDelete, or ask to cancel it by job
+              ID. Esc will NOT stop it: it only interrupts the current tick, the cron stays registered
+              and re-fires.) The cadence is fixed, so there is no experiment short-poll in this mode — a
               running experiment is simply re-checked on the next tick.
 
 ## STOP reasons (always written to ledger `stop`)
@@ -158,7 +160,8 @@ live iteration, so exit without recording or removing it.
 Both modes enforce MAX_ITERS / STOP_ON via step 6 (set MAX_ITERS: N for a bounded run, inf for open-ended).
 Why dynamic is the default: its ending is fail-safe — the loop ends by NOT re-arming its own wakeup —
 while interval mode keeps firing until the loop actively CronDeletes its job; a missed delete means no-op
-STOP ticks until Esc or the 7-day expiry. Pick interval mode when a predictable wall-clock cadence is
+STOP ticks until you cancel the job (CronDelete, or ask to cancel it by job ID) or the 7-day expiry —
+Esc does NOT remove the cron, it only interrupts the current tick. Pick interval mode when a predictable wall-clock cadence is
 worth that trade. Run one loop per scope.
 Either way the loop is LOCAL + session-scoped: the session must stay open AND the machine awake to fire
 (a closed or sleeping laptop will not run it). Mid-run compaction (auto, or a manual /compact between
