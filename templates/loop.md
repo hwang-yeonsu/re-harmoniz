@@ -23,8 +23,9 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 - MAX_TARGETS:     «N, default 2»     ← Phase B auto-pick cap per iteration (reharmonization only)
 - RUN_EXPERIMENTS: «no | yes»         ← the only experiment switch you set: no = design + handoff only,
                                         never runs code; yes = may LAUNCH real code (fire-and-return,
-                                        then polled), still subject to the GATE's two auto-checked
-                                        scope prerequisites (ACT step b)
+                                        then polled) once the GATE's auto-checks pass (ACT step b) —
+                                        with no runner entry point set, a DEFAULT RUNNER is materialized
+                                        into the code workspace (see ACT step b)
 - EXP_TIMEOUT:     «duration | none»  ← a running experiment older than this → abandoned (no infinite wait)
 - SIBLING_SCOPE:   «absolute path | none»   ← donor scope for modal-interchange
 - STOP_ON:         reseed, change-strategy   ← stagnation verdicts that halt the loop
@@ -89,15 +90,28 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
                               → pre-registration node (status: planned) + a ## Handoff block.
                               If a `planned` node already exists, reuse it and go to (b).
                 (b) EXECUTE : launch the real experiment ONLY if the GATE passes. The GATE is one switch
-                              plus two auto-checked prerequisites — all three are mechanical lookups,
-                              never judgement calls:
+                              plus two auto-checked prerequisites:
                               1. RUN_EXPERIMENTS = yes         (CONFIG — the only part you set)
-                              2. runner entry point is set     (node `runner:` OR SCOPE/CLAUDE.md §6 Toggles)
-                              3. code-workspace path exists    (SCOPE/CLAUDE.md §2 Metadata)
-                              • Pass → FIRE-AND-RETURN: launch the ## Handoff command in the BACKGROUND
-                                       (run_in_background, or submit to the external runner) — do NOT wait
-                                       for it (blocking would hold the lock for the whole run). Flip the
-                                       node to status: running; the runner's report must land in
+                              2. code-workspace path exists    (SCOPE/CLAUDE.md §2 Metadata)
+                              3. a runner is available         — a set entry point (node `runner:` OR
+                                                                 SCOPE/CLAUDE.md §6 Toggles), else the
+                                                                 DEFAULT RUNNER below
+                              DEFAULT RUNNER (no entry point set, workspace exists): OPERATIONALIZE the
+                              node yourself — write a self-contained script at
+                              <workspace>/.reharm-runner/<node-stem>/run.sh (or .py, whichever fits the
+                              goal) that executes the node's ## For the runner goal under the
+                              pre-registered Conditions and writes its report (result + the conditions it
+                              actually ran under) to SCOPE/.raw/experiments-results/<node-stem>.md. Set
+                              the node's `runner:` to that script path BEFORE launching (§12: the runner
+                              is recorded, never inferred — the record is the audit trail). If the goal
+                              cannot be operationalized with the workspace + standard tools (missing
+                              data, hardware, credentials, external services), do NOT launch — that is a
+                              gate fail, not a judgement to force.
+                              • Pass → FIRE-AND-RETURN: launch the runner — the ## Handoff command, or
+                                       the default-runner script — in the BACKGROUND (run_in_background,
+                                       or submit to the external runner) — do NOT wait for it (blocking
+                                       would hold the lock for the whole run). Flip the node to
+                                       status: running; the runner's report must land in
                                        SCOPE/.raw/experiments-results/. This iteration ENDS here — a later
                                        JUDGE collects the result (do NOT judge it now).
                               • Fail → stop after DESIGN; record gate = "exec-blocked".

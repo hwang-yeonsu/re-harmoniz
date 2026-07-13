@@ -4,6 +4,56 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] — 2026-07-13
+
+**One command to a running loop + experiments that work out of the box.** The eighth skill —
+`reharm:loop-setup` — collapses "copy the template, fill CONFIG by hand, run `/loop`" into a single
+interactive command, and the loop template gains a DEFAULT RUNNER so `RUN_EXPERIMENTS: yes` no
+longer dead-ends on a scope whose code workspace is empty.
+
+### Added
+
+- **`reharm:loop-setup` — autonomous-loop wizard** (`skills/loop-setup/SKILL.md` + the
+  `commands/loop-setup.md` dispatcher for `/reharm:loop-setup`). Detects the scope (`.raw/` +
+  `wiki/` scan), derives the mechanical CONFIG fields (LEDGER path, MAX_TARGETS, STOP_ON) without
+  asking, interviews only the real decisions (MAX_ITERS, RUN_EXPERIMENTS, SIBLING_SCOPE, dynamic vs
+  interval), pre-validates the experiment gate **before the first tick**, writes `.claude/loop.md`
+  from the plugin template (CONFIG placeholders only — the contract ships verbatim), and then
+  starts the native `/loop` in the same invocation via the Skill tool (empty args → dynamic;
+  cadence-only args → interval). Ends with a one-tick smoke-check. Never overwrites an existing
+  loop.md without showing the CONFIG diff; a fresh ledger lock stops it.
+- **`templates/loop.md` — DEFAULT RUNNER** (ACT step b). The manual protocol records a runner entry
+  point and never infers one (EVOLUTION.md §12), so a blank `runner:` under the unattended loop
+  meant a guaranteed `exec-blocked`. Now, when `RUN_EXPERIMENTS: yes` and the workspace path exists
+  but no entry point is set, the loop operationalizes the pre-registration itself: it writes a
+  self-contained script to `<workspace>/.reharm-runner/<node-stem>/`, records that path in the
+  node's `runner:` **before** launching (§12's recorded-never-inferred audit rule holds), and fires
+  it in the background. Goals the workspace cannot serve (missing data/hardware/credentials) still
+  stop at `exec-blocked`. Protocol (EVOLUTION.md) and the experiment-design skill are unchanged —
+  the fallback lives only in the loop template, where the delegated-authority override already lives.
+
+### Changed
+
+- **Guides (EN/KO)** — experiment section reworked around the default runner ("an empty workspace
+  still works"); compact section now states that auto-compact is on by default
+  (`autoCompactEnabled`), runs inside each turn's query pipeline (an over-threshold tick compacts
+  itself unattended), and that forcing a compact every tick is an anti-pattern (lossy + breaks the
+  cached prompt prefix).
+- **READMEs (EN/KO), `docs/SKILLS.md`/`SKILLS.ko.md`** — `/reharm:loop-setup` documented as the
+  quickest path to a running loop; skill count updated (seven evolution skills + one wizard).
+
+### Migration
+
+- **Existing wikis/scopes: none needed.** EVOLUTION.md, the seven evolution skills, the lint/score
+  scripts, the node schema, the ledger JSONL format, and the lock protocol are all unchanged across
+  0.11.0–0.12.0 (verified by diff). Ledgers keep counting; nodes are untouched.
+- **The one artifact that can go stale is a hand-copied `.claude/loop.md`** from ≤ 0.10.x — it
+  still runs (dynamic mode), but predates interval mode, the mode-branching step 6, and the DEFAULT
+  RUNNER. Refresh it by re-running `/reharm:loop-setup`: the wizard detects the older body, keeps
+  your CONFIG, and rewrites the rest from the current template. The file is a point-in-time copy
+  owned by the research project — plugin upgrades never touch it, so this refresh is always an
+  explicit step, never automatic.
+
 ## [0.11.0] — 2026-07-13
 
 **Autonomous loop: interval mode + clearer contract.** Review-driven release; no skill or protocol

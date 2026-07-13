@@ -135,6 +135,13 @@ A long run **will** hit context compaction, and the loop is built for it:
 
 So nothing special is needed: let auto-compact happen, or `/compact` manually while
 the loop is idle between ticks, and the next tick continues where the ledger says.
+Auto-compact is **on by default** (`autoCompactEnabled` defaults to true) and runs
+inside each turn's query pipeline — a tick that crosses the context threshold compacts
+itself *before* calling the model, with nobody at the keyboard. Just verify it hasn't
+been turned off (`/config` → Auto-compact; no `DISABLE_AUTO_COMPACT` in the
+environment). Do **not** try to force a compact every tick: compaction is lossy
+summarization, and it would invalidate the cached prompt prefix the loop's cost model
+leans on — the threshold trigger is the right cadence.
 What is **not** safe is `/clear` (or starting a fresh conversation): that clears the
 scheduled tasks themselves and the loop dies silently — restart it with `/loop`.
 
@@ -162,14 +169,27 @@ at launch time (they are facts about your scope, not decisions):
 
 ```
 you set        RUN_EXPERIMENTS = yes            ← the only knob; no = never runs code
-auto-checked   a runner entry point is set      (node  runner:  OR scope CLAUDE.md §6 Toggles)
 auto-checked   the code-workspace path exists   (scope CLAUDE.md §2 / §12)
+auto-checked   a runner is available            (entry point set — node  runner:  OR scope
+                                                 CLAUDE.md §6 — else the DEFAULT RUNNER below)
 ```
 
-All three are mechanical lookups — no judgement calls. If any is missing, the loop
-**stops after DESIGN + handoff** and records `gate = "exec-blocked"`: with
-`RUN_EXPERIMENTS: no` the loop simply never runs code, and with `yes` it still cannot
-launch into a scope that lacks a runner or a workspace.
+If the switch is off or the workspace is missing, the loop **stops after DESIGN +
+handoff** and records `gate = "exec-blocked"`: with `RUN_EXPERIMENTS: no` the loop
+simply never runs code.
+
+**Default runner — an empty workspace still works.** The manual protocol records the
+runner entry point explicitly and never infers it (§12); the scope template even says
+*"leave blank to decide per experiment"*. Under an unattended loop that blank would
+mean a guaranteed `exec-blocked`, so the template adds a loop-only fallback: when the
+switch is on and the workspace path exists but no entry point is set, the loop
+**operationalizes the pre-registration itself** — it writes a self-contained script to
+`<workspace>/.reharm-runner/<node-stem>/`, records that script path in the node's
+`runner:` **before** launching (so §12's audit rule — recorded, never inferred — still
+holds), and fires it in the background. The report lands in `.raw/experiments-results/`
+and Phase C judges it against the pre-registered criterion, exactly as with an external
+runner. If the goal needs things the workspace cannot offer (data, hardware,
+credentials, external services), the loop does not force it — `exec-blocked` as before.
 
 **Launching is fire-and-return.** The loop launches the run in the background
 (`run_in_background`, or submits it to the external runner) and **does not wait** — blocking
@@ -216,6 +236,22 @@ If you need a run that survives a closed laptop, neither mode helps — that is 
 ---
 
 ## How to use
+
+The one-command path: run **`/reharm:loop-setup`** from the research project root. It detects the
+scope, interviews you for the CONFIG choices, validates the experiment gate up front, writes
+`.claude/loop.md` from this template, and starts the native `/loop` in the same invocation —
+**there is nothing to hand-copy**; the `cp` + fill-CONFIG steps below are the manual *alternative*,
+not a prerequisite.
+
+Either way, know what the file *is*: `.claude/loop.md` belongs to the **research project** (the
+plugin never installs or touches it — the override stays opt-in), and it is a **point-in-time copy**
+of this template. Installing or upgrading the plugin does not update it. After an upgrade, re-run
+`/reharm:loop-setup`: it shows your existing CONFIG, keeps it on confirmation, and rewrites the rest
+of the file from the new template. The ledger is not part of the file, so the refreshed loop resumes
+exactly where the old one stopped — and your scope needs **no migration** for template changes
+(nodes, ledger format, lock, and lint rules are untouched).
+
+The manual equivalent, step by step:
 
 ```bash
 # 1. Copy the template into your research project (where the scope lives)

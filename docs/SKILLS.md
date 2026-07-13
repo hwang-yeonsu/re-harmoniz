@@ -2,7 +2,7 @@
 
 **English** · [한국어](SKILLS.ko.md)
 
-Seven skills, each one command. You don't have to memorize them: when you're not sure what to do next, run [`reharm:pushing`](#reharmpushing--ask-what-now) and it reads the scope and names the move. This guide is for when you'd rather choose yourself — it maps *situations* to skills, and says what each one will and won't touch.
+Seven evolution skills plus one setup wizard, each one command. You don't have to memorize them: when you're not sure what to do next, run [`reharm:pushing`](#reharmpushing--ask-what-now) and it reads the scope and names the move. This guide is for when you'd rather choose yourself — it maps *situations* to skills, and says what each one will and won't touch.
 
 Every skill also fires on plain language (English or Korean), so you can say what you want instead of typing the command. The trigger phrases are listed with each skill.
 
@@ -17,6 +17,7 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 | Link two research scopes | [`reharm:modal-interchange`](#reharmmodal-interchange--connect-two-scopes) |
 | Get real-world proof for a claim stuck one step from the top | [`reharm:experiment-design`](#reharmexperiment-design--design-real-world-proof) |
 | Write up the answer to the central question | [`reharm:ensemble`](#reharmensemble--write-the-answer) |
+| Run the loop unattended — set up and start in one command | [`reharm:loop-setup`](#reharmloop-setup--set-up-and-start-the-autonomous-loop) |
 
 ---
 
@@ -105,6 +106,18 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 **Then what:** keep evolving the core; re-run ensemble later and the page updates itself.
 
 **Just say:** *"synthesize the answer"*, *"answer the central question"*, *"답변 합성"*, *"결론 합성"*.
+
+### `reharm:loop-setup` — set up and start the autonomous loop
+
+**Reach for it when:** you want the seven skills above to run *unattended* (overnight batches, long-horizon accumulation) and don't want to hand-edit the loop template.
+
+**What happens:** it detects the scope, interviews you for the real decisions (`MAX_ITERS`, `RUN_EXPERIMENTS`, sibling scope, dynamic vs interval pacing), derives the mechanical fields itself, validates the experiment gate *before* the first tick, writes `.claude/loop.md`, and starts the native `/loop` — all in one invocation.
+
+**What it won't do:** it decides nothing about knowledge. The unattended auto-decisions live in the loop template it writes (see the [autonomous-loop guide](../templates/loop.guide.md)), and they activate only after you answer the interview and the loop starts.
+
+**Then what:** keep the session open and the machine awake; `Esc` stops the loop; re-run the wizard after a plugin upgrade to pick up template fixes.
+
+**Just say:** *"reharm loop setup"*, *"start the evolution loop"*, *"자율 루프 설정"*, *"루프 시작"*.
 
 ---
 

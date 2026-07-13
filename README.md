@@ -185,6 +185,15 @@ That's only an example — use whatever structure you already have. (Since a sco
 
 Every skill above is **manual by design** — you pick the targets, you adjudicate (`EVOLUTION.md` "nothing is auto-decided"). When you want the loop to run *unattended*, the plugin ships a template that deliberately trades that away: [`templates/loop.md`](templates/loop.md). Copy it to your research project's `.claude/loop.md`, fill in the `CONFIG` block, and the native `/loop` command re-runs **one iteration per firing** — `reharm:pushing` picks the next move, then the recommended skill executes, with the main session standing in for your approvals.
 
+The quickest path is the bundled wizard — **one command from zero to a running loop**:
+
+```bash
+/reharm:loop-setup       # detects the scope, interviews for CONFIG, validates the experiment gate,
+                         # writes .claude/loop.md, then starts the native /loop — all in one invocation
+```
+
+No hand-copying needed — the wizard writes `.claude/loop.md` for you. Manual setup (copy the template, fill CONFIG yourself) remains a valid alternative. Either way the file is a point-in-time copy owned by your research project: plugin upgrades never touch it, so re-run the wizard afterwards to refresh it (your CONFIG is shown and kept, the ledger carries over, and your scope/wiki needs no migration). The loop then runs as:
+
 ```bash
 # from the research project root — /loop with no prompt (bare or interval-only) reads .claude/loop.md
 /loop                    # recommended — dynamic, self-paced: enforces MAX_ITERS, stops itself when idle or stagnant
