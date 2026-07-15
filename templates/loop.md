@@ -24,8 +24,9 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 - RUN_EXPERIMENTS: «no | yes»         ← the only experiment switch you set: no = design + handoff only,
                                         never runs code; yes = may LAUNCH real code (fire-and-return,
                                         then polled) once the GATE's auto-checks pass (ACT step b) —
-                                        with no runner entry point set, a DEFAULT RUNNER is materialized
-                                        into the code workspace (see ACT step b)
+                                        the launch spawns the runner recorded on the node as an isolated
+                                        background sub-agent (default: the plugin's runner-worker doc,
+                                        recorded by experiment-design; see ACT step b)
 - EXP_TIMEOUT:     «duration | none»  ← a running experiment older than this → abandoned (no infinite wait)
 - SIBLING_SCOPE:   «absolute path | none»   ← donor scope for modal-interchange
 - STOP_ON:         reseed, change-strategy   ← stagnation verdicts that halt the loop
@@ -93,27 +94,33 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
                               plus two auto-checked prerequisites:
                               1. RUN_EXPERIMENTS = yes         (CONFIG — the only part you set)
                               2. code-workspace path exists    (SCOPE/CLAUDE.md §2 Metadata)
-                              3. a runner is available         — a set entry point (node `runner:` OR
-                                                                 SCOPE/CLAUDE.md §6 Toggles), else the
-                                                                 DEFAULT RUNNER below
-                              DEFAULT RUNNER (no entry point set, workspace exists): OPERATIONALIZE the
-                              node yourself — write a self-contained script at
-                              <workspace>/.reharm-runner/<node-stem>/run.sh (or .py, whichever fits the
-                              goal) that executes the node's ## For the runner goal under the
-                              pre-registered Conditions and writes its report (result + the conditions it
-                              actually ran under) to SCOPE/.raw/experiments-results/<node-stem>.md. Set
-                              the node's `runner:` to that script path BEFORE launching (§12: the runner
-                              is recorded, never inferred — the record is the audit trail). If the goal
-                              cannot be operationalized with the workspace + standard tools (missing
-                              data, hardware, credentials, external services), do NOT launch — that is a
-                              gate fail, not a judgement to force.
-                              • Pass → FIRE-AND-RETURN: launch the runner — the ## Handoff command, or
-                                       the default-runner script — in the BACKGROUND (run_in_background,
-                                       or submit to the external runner) — do NOT wait for it (blocking
-                                       would hold the lock for the whole run). Flip the node to
-                                       status: running; the runner's report must land in
+                              3. a runner is recorded          — the node's `runner:` OR SCOPE/CLAUDE.md
+                                                                 §6 Toggles. experiment-design records the
+                                                                 plugin's runner-worker doc as the default
+                                                                 at design time, so a fresh node normally
+                                                                 passes; a node with neither (an older
+                                                                 design) → re-run (a) on the claim — the
+                                                                 design skill refreshes it with the lane.
+                              • Pass → FIRE-AND-RETURN: launch the runner in the BACKGROUND and do NOT
+                                       wait for it (blocking would hold the lock for the whole run):
+                                       - entry point is a worker doc (a .md — the default runner-worker):
+                                         spawn ONE background sub-agent (the RUNNER) instructed to "read
+                                         <that absolute path> and follow it", passing absolute paths
+                                         inline: the pre-registration node, the code workspace, the
+                                         result sink (SCOPE/.raw/experiments-results/), and EVOLUTION.md
+                                         (subs don't inherit plugin env vars). Per the worker doc it
+                                         OPERATIONALIZEs in the workspace (authoring + dry-running under
+                                         <workspace>/.reharm-runner/<node-stem>/), EXECUTEs under the
+                                         pre-registered Conditions, and writes its report — or a BLOCKED
+                                         report when the goal cannot be operationalized (missing data,
+                                         hardware, credentials) — to the result sink. It never touches
+                                         the wiki and never judges the claim.
+                                       - entry point is a command (an external runner): launch that
+                                         command (run_in_background, or submit to the external runner).
+                                       Flip the node to status: running; the runner's report must land in
                                        SCOPE/.raw/experiments-results/. This iteration ENDS here — a later
-                                       JUDGE collects the result (do NOT judge it now).
+                                       JUDGE collects the result (do NOT judge it now; a blocked report
+                                       imports as abandoned and goes back to a human).
                               • Fail → stop after DESIGN; record gate = "exec-blocked".
             • wait              → do nothing this iteration (an experiment is in flight); go to step 6.
             • on any action error → record it, then STOP("action-error").

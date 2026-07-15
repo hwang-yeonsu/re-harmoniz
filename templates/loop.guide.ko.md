@@ -169,24 +169,30 @@ Auto-compact; 환경변수에 `DISABLE_AUTO_COMPACT` 없음). 매 tick마다 com
 ```
 당신이 설정   RUN_EXPERIMENTS = yes            ← 유일한 스위치; no면 코드를 절대 안 돌림
 자동 확인     코드 워크스페이스 경로 존재        (스코프 CLAUDE.md §2 / §12)
-자동 확인     runner 사용 가능                  (진입점 설정 — 노드  runner:  또는 스코프
-                                                CLAUDE.md §6 — 없으면 아래 기본 runner)
+자동 확인     runner 기록됨                     (노드  runner:  또는 스코프 CLAUDE.md §6 —
+                                                비어 있으면 experiment-design이 설계 시점에
+                                                플러그인의 runner-worker를 기본값으로 기록)
 ```
 
 스위치가 꺼져 있거나 워크스페이스가 없으면 루프는 **DESIGN + handoff에서 멈추고**
 `gate = "exec-blocked"`를 기록합니다: `RUN_EXPERIMENTS: no`면 코드를 아예 안 돌립니다.
 
 **기본 runner — 빈 워크스페이스도 돕니다.** 수동 프로토콜은 runner 진입점을 명시적으로
-기록하고 절대 추론하지 않습니다(§12); 스코프 템플릿도 *"비워 두면 실험마다 정한다"*고
-말합니다. 무인 루프에서 그 빈칸은 곧 확정 `exec-blocked`이므로, 템플릿에 루프 전용
-폴백을 두었습니다: 스위치가 켜져 있고 워크스페이스 경로는 있는데 진입점이 없으면, 루프가
-**사전등록을 직접 OPERATIONALIZE합니다** — `<워크스페이스>/.reharm-runner/<노드-stem>/`에
-자기완결 스크립트를 쓰고, 실행 **전에** 그 경로를 노드의 `runner:`에 기록한 뒤(§12의
-감사 규칙 — 기록하지 추론하지 않는다 — 이 그대로 지켜집니다) 백그라운드로 띄웁니다.
-결과 보고서는 `.raw/experiments-results/`에 떨어지고 Phase C가 사전등록 기준으로
-판정합니다 — 외부 runner와 정확히 같은 경로입니다. goal이 워크스페이스가 줄 수 없는 것
-(데이터, 하드웨어, 자격증명, 외부 서비스)을 요구하면 억지로 돌리지 않습니다 — 기존처럼
-`exec-blocked`입니다.
+기록하고 절대 추론하지 않습니다(§12). 외부 진입점이 없으면 `experiment-design`이 설계
+시점에 플러그인의 **runner-worker 문서**(`templates/runner-worker.md`)를 각 노드의
+`runner:`에 기록합니다 — 기록하지 추론하지 않으므로 §12의 감사 규칙이 그대로 지켜집니다.
+실행 시점에 루프는 그 워커를 **격리된 백그라운드 서브에이전트 하나**로 띄웁니다: 서브가
+코드 워크스페이스에서 사전등록을 OPERATIONALIZE하고 —
+`<워크스페이스>/.reharm-runner/<노드-stem>/`에 실행을 구성해 본 실행 전에 **dry-run으로
+먼저 검증**합니다. 설계 층이 할 수 없는 바로 그 검증입니다(§12) — 사전등록된 조건 하에서
+EXECUTE한 뒤 보고서를 `.raw/experiments-results/`에 씁니다. Phase C가 사전등록 기준으로
+판정합니다 — 외부 runner와 정확히 같은 경로입니다. 서브는 위키를 건드리지 않고 주장을
+판정하지 않습니다. 이 격리는 §5의 오염 통제를 실행에 적용한 것이기도 합니다 — runner는
+세션의 mutation narrative를 보지 못하므로, 세션이 바라는 결과 쪽으로 실행이 휘어질 수
+없습니다(긴 실험 로그가 루프 세션 컨텍스트에 쌓이지 않는 것은 덤입니다). goal이
+워크스페이스가 줄 수 없는 것(데이터, 하드웨어, 자격증명, 외부 서비스)을 요구하면 워커는
+억지로 돌리는 대신 *blocked* 보고서를 씁니다 — Phase C가 `abandoned`로 분류해 사람에게
+되돌립니다.
 
 **실행은 fire-and-return입니다.** 루프는 실험을 백그라운드(`run_in_background`, 또는 외부 러너
 제출)로 띄우고 **기다리지 않습니다** — 기다리면 실행 내내 스코프 lock을 쥐어 다른 모든 iteration을

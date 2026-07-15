@@ -170,8 +170,9 @@ at launch time (they are facts about your scope, not decisions):
 ```
 you set        RUN_EXPERIMENTS = yes            ← the only knob; no = never runs code
 auto-checked   the code-workspace path exists   (scope CLAUDE.md §2 / §12)
-auto-checked   a runner is available            (entry point set — node  runner:  OR scope
-                                                 CLAUDE.md §6 — else the DEFAULT RUNNER below)
+auto-checked   a runner is recorded             (node  runner:  OR scope CLAUDE.md §6 —
+                                                 experiment-design records the plugin's
+                                                 runner-worker as the default at design time)
 ```
 
 If the switch is off or the workspace is missing, the loop **stops after DESIGN +
@@ -179,17 +180,22 @@ handoff** and records `gate = "exec-blocked"`: with `RUN_EXPERIMENTS: no` the lo
 simply never runs code.
 
 **Default runner — an empty workspace still works.** The manual protocol records the
-runner entry point explicitly and never infers it (§12); the scope template even says
-*"leave blank to decide per experiment"*. Under an unattended loop that blank would
-mean a guaranteed `exec-blocked`, so the template adds a loop-only fallback: when the
-switch is on and the workspace path exists but no entry point is set, the loop
-**operationalizes the pre-registration itself** — it writes a self-contained script to
-`<workspace>/.reharm-runner/<node-stem>/`, records that script path in the node's
-`runner:` **before** launching (so §12's audit rule — recorded, never inferred — still
-holds), and fires it in the background. The report lands in `.raw/experiments-results/`
-and Phase C judges it against the pre-registered criterion, exactly as with an external
-runner. If the goal needs things the workspace cannot offer (data, hardware,
-credentials, external services), the loop does not force it — `exec-blocked` as before.
+runner entry point explicitly and never infers it (§12). With no external entry point
+set, `experiment-design` records the plugin's **runner-worker doc**
+(`templates/runner-worker.md`) in each node's `runner:` at design time — recorded,
+never inferred, so §12's audit rule holds. At launch the loop spawns that worker as
+**one isolated background sub-agent**: it OPERATIONALIZEs the pre-registration in the
+code workspace — authoring the run under `<workspace>/.reharm-runner/<node-stem>/` and
+**dry-running** it before the real run, the validation the design layer cannot do
+(§12) — then EXECUTEs under the pre-registered Conditions and writes the report to
+`.raw/experiments-results/`. Phase C judges it against the pre-registered criterion,
+exactly as with an external runner. The sub never touches the wiki and never
+adjudicates the claim; the isolation is §5's pollution control applied to execution —
+the runner never sees the session's mutation narrative, so a run cannot be bent toward
+the result the session hopes for (and long experiment logs stay out of the loop
+session's context). If the goal needs things the workspace cannot offer (data,
+hardware, credentials, external services), the worker writes a *blocked* report instead
+of forcing a run — Phase C files it as `abandoned` for a human to unblock.
 
 **Launching is fire-and-return.** The loop launches the run in the background
 (`run_in_background`, or submits it to the external runner) and **does not wait** — blocking

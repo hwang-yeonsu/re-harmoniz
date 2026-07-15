@@ -87,11 +87,11 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 **Reach for it when:** a claim is stuck one step from the top — surviving refutation but blocked at the `hardened → evergreen` gate because it has no field evidence.
 
-**What happens:** it pre-registers the experiment that would settle it: a hypothesis, a **CONFIRM/REFUTE criterion fixed before the run** (so the result can't be rationalized after the fact), the conditions to record, and a plain-language goal handed to an external runner.
+**What happens:** it pre-registers the experiment that would settle it: a hypothesis, a **CONFIRM/REFUTE criterion fixed before the run** (so the result can't be rationalized after the fact), the conditions to record, and a plain-language goal handed to a runner — your external runner if the scope names one, else the plugin's default **runner-worker**, recorded on the node so you (or the autonomous loop) can launch it later.
 
 **What it won't do:** it never runs code. It designs and records only; the actual run happens elsewhere, and its result comes back as a new source.
 
-**Then what:** run the experiment externally → `reharm:root` the result → the next `reharm:reharmonization` imports it under `## Field Evidence`, which is what opens the `evergreen` gate.
+**Then what:** launch the run per the `## Handoff` block (spawn the default runner-worker, or invoke your external runner) → `reharm:root` the result → the next `reharm:reharmonization` imports it under `## Field Evidence`, which is what opens the `evergreen` gate.
 
 **Just say:** *"design an experiment"*, *"pre-register experiment"*, *"실험 설계"*.
 

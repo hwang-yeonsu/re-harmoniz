@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz field-experiment designer — pre-registers (designs) the experiment that would confirm or refute a claim stuck at the evergreen gate, then hands off to an external runner. Designs and records only; never runs code."
+description: "re:Harmoniz field-experiment designer — pre-registers (designs) the experiment that would confirm or refute a claim stuck at the evergreen gate, then hands off to a runner (external, or the plugin's default runner-worker). Designs and records only; never runs code."
 ---
 
 # reharm:experiment-design — Field-Experiment Designer (pre-registration)

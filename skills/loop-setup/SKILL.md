@@ -43,9 +43,10 @@ loop starts.
    - Workspace path (§2 Metadata) missing or nonexistent → warn that every experiment tick will
      stop at design + `exec-blocked`, and offer to flip `RUN_EXPERIMENTS` back to `no`.
    - Workspace exists, runner entry (§6 Toggles) set → report the external-runner lane.
-   - Workspace exists, runner entry blank → report that the loop will use its **DEFAULT RUNNER**
-     (it operationalizes each pre-registration into `<workspace>/.reharm-runner/` itself — see the
-     template's ACT step b). An empty workspace is fine.
+   - Workspace exists, runner entry blank → report the default lane: experiment-design records the
+     plugin's **runner-worker** (`templates/runner-worker.md`) as each node's `runner:`, and the loop
+     launches it as an isolated background sub-agent that operationalizes (dry-run first) and
+     executes in the workspace (see the template's ACT step b). An empty workspace is fine.
    - Then ask `EXP_TIMEOUT` (second AskUserQuestion: e.g. `2h` / `8h` / `none`).
 6. **Write `.claude/loop.md`.** Copy `${CLAUDE_SKILL_DIR}/../../templates/loop.md` **verbatim**,
    replacing only the CONFIG `«»` values with the answers. Never edit any other section — the rest

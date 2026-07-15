@@ -4,6 +4,52 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] — 2026-07-15
+
+**Experiments stop starving behind the frontier, and get a real executor.** Two changes born from
+live-wiki operation. First, pushing's cascade no longer lets the always-on frontier/cadence signals
+starve a `hardened` claim waiting at the evergreen gate: the experiment row (and the deep-research
+row behind it, per EVOLUTION.md §13's "right after the §12 experiment rule" placement) now sits
+**above** the momentum row. An experiment recommendation is fire-and-return — momentum loses one
+step, not throughput. Second, the loop's inline self-authored `run.sh` default runner grows into
+`templates/runner-worker.md`: an isolated background sub-agent that operationalizes (dry-run first)
+and executes the pre-registration in the code workspace — the plugin's third worker-doc pattern,
+after `per-source.md` and `refuter.md`.
+
+### Added
+
+- **`templates/runner-worker.md`** — the OPERATIONALIZE + EXECUTE worker doc (§12 layers 2–3): reads
+  the pre-registration node, dry-runs the run before the real one (the validation the DESIGN layer
+  cannot do), executes under the pre-registered Conditions, and writes exactly one report — or a
+  *blocked* report when the goal cannot be operationalized — to `.raw/experiments-results/`. It never
+  touches the wiki, never adjudicates the claim, and never sees the session's mutation narrative
+  (§5 isolation applied to execution).
+
+### Changed
+
+- **pushing cascade reordered** (`skills/pushing/SKILL.md`): the old row 4 is split. An **integrity**
+  row (last eval `pass:false` / borrowed-snapshot drift) stays above experiments — freezing a
+  CONFIRM/REFUTE criterion on top of an unsound last session would pre-register the wrong
+  formulation. The **momentum** row (positive frontier / §3 cadence) moves **below** the experiment
+  and deep-research rows. The ordering rationale is recorded under the table; the
+  one-live-experiment-per-claim rule keeps the experiment row from monopolizing.
+- **experiment-design records the runner lane at design time** (`skills/experiment-design/SKILL.md`):
+  `runner:` is now always recorded — the scope `CLAUDE.md` §6 entry point when set, else the absolute
+  path of the plugin's default runner-worker — and `## Handoff` carries the matching launch step
+  (external command, or the default-runner spawn instruction with the absolute paths a sub needs).
+  Recording an entry point is still DESIGN (§12: recorded, never inferred); nothing is executed.
+- **loop ACT step b launches a runner sub-agent** (`templates/loop.md`): replaces the inline
+  `run.sh` DEFAULT RUNNER. A worker-doc entry point (`.md`) spawns one isolated background sub-agent
+  with inline absolute paths; a command entry point launches as before. A goal that cannot be
+  operationalized now lands as a *blocked* report in the sink (a later Phase C imports it as
+  `abandoned`, back to a human) instead of a pre-launch judgement inside the loop session. Fresh
+  pre-registrations normally pass GATE 3 because the design skill records the lane; older nodes are
+  refreshed by re-running the design step.
+- Docs synced to the runner-worker lane: `skills/loop-setup/SKILL.md` (gate pre-check wording),
+  `templates/loop.guide.md` / `templates/loop.guide.ko.md`, `README.md` / `README.ko.md`,
+  `docs/SKILLS.md` / `docs/SKILLS.ko.md`, `templates/SCOPE_CLAUDE.md` (runner toggle: blank now
+  means the default runner-worker, recorded per node), `commands/experiment-design.md`.
+
 ## [0.12.2] — 2026-07-13
 
 **Loops terminate explicitly — `Esc` is gone from the stop guidance.** Building on 0.12.1: the docs

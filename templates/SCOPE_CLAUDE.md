@@ -33,7 +33,7 @@
 
 - Web search: enabled <!-- or: disabled -->
 - Source policy: prefer peer-reviewed / official docs / primary sources; do not cite social media, forums, or undated pages as high-confidence <!-- edit per domain; scopes the §6 evidence lens -->
-- Experiment runner (optional): `<external runner entry point, e.g. /autoresearch:plan>` — the field-experiment designer hands off here (EVOLUTION.md §12). Leave blank to decide per experiment.
+- Experiment runner (optional): `<external runner entry point, e.g. /autoresearch:plan>` — the field-experiment designer hands off here (EVOLUTION.md §12). Leave blank to use the plugin's default runner-worker: the designer records its worker-doc path per node at design time (recorded, never inferred).
 - Research escalation: <!-- external deep-research entry point (EVOLUTION.md §13) — leave unset to keep the bridge closed; pushing only recommends escalation when this is set -->
 - Allowed external wikilinks: (none) <!-- comma-separated stems (e.g. 볼트노트, [[다른스코프노드]]) that are deliberate cross-scope citations; wiki-lint reports them as allowed_external instead of unresolved noise -->
 - <YYYY-MM-DD>: scope created. Nodes: 0.
