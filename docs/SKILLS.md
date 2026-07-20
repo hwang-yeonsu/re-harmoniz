@@ -53,7 +53,7 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 **What happens:** one full cycle — **Retrospect → Target (you approve which nodes) → Mutate (revise, decompose new sources, hunt counter-evidence) → Natural Selection (three refuters, one lens each — coherence · evidence · reproducibility; ≥2/3 must survive) → Record (`E####.md` + `index`/`hot` refresh)**. Survivors gain a generation and may promote (`seed → developing → hardened → evergreen`).
 
-**What it won't do:** it won't promote anything that doesn't survive refutation, and it won't touch a node you didn't approve as a target. Getting past `hardened` needs independent sources and real-world field evidence — it can't be willed.
+**What it won't do:** it won't promote anything that doesn't survive refutation, and it won't touch a node you didn't approve as a target. Getting past the gates takes the claim's own evidence currency (EVOLUTION.md §3): independent sources for a literature claim, replication for a fact you measured yourself, an adoption record for a design decision — and real-world field evidence for `evergreen`. It can't be willed.
 
 **Then what:** `reharm:critique` if the session left ambiguous residue; `reharm:pushing` to pick the next target.
 
@@ -63,7 +63,7 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 **Reach for it when:** the backlog has piled up — open questions, contradictions sitting on two nodes, low-confidence nodes that stalled, lint warnings. The residue that needs a human ruling, not another refutation round.
 
-**What happens:** it gathers that backlog and interviews you. Themed items are bundled into a single multi-select triage (promote / hold / archive); questions untouched for 4+ sessions are proposed as one aging batch. Your rulings are applied — contradictions absorbed into `## Objections & Limits`, questions sharpened or filed.
+**What happens:** it gathers that backlog and interviews you. Themed items are bundled into a single multi-select triage (promote / merge / hold / archive); questions untouched for 4+ sessions are proposed as one aging batch, and seeds that never earned a challenge in 3+ sessions surface as merge candidates. Your rulings are applied — contradictions absorbed into `## Objections & Limits`, duplicate or detail-level claims folded into their parent (the absorbed node keeps a pointer, never deleted), questions sharpened or filed.
 
 **What it won't do:** it never raises a generation — those are earned by surviving refutation, not by your verdict — so it only adjusts `confidence`/`status`. And it never auto-archives: aging is always *proposed*, never silent.
 
@@ -99,7 +99,7 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 **Reach for it when:** a hardened core is in place and you want the scope's central question actually answered on one page — for a report, a decision, or a handoff. This is the loop's **exit**.
 
-**What happens:** it assembles the survivors (hardened claims, mashups) into one `deliverables/` page. Every load-bearing sentence cites its node with a `(status · confidence · generation)` snapshot, the **weakest load-bearing claim sets the page's confidence floor**, and unresolved caveats stay on the record under `## Open caveats`.
+**What happens:** it assembles the survivors (hardened claims, mashups) into one `deliverables/` page that **opens with a three-line bottom line — verdict, condition, next action**. Every load-bearing sentence cites its node with a `(status · confidence · generation)` snapshot, the **weakest verdict-changing claim sets the page's confidence floor** (background citations don't — and each verdict axis may state its own floor), and unresolved caveats stay on the record under `## Open caveats`.
 
 **What it won't do:** it never changes any node's state — the answer tracks the wiki, not the other way round. Re-running it re-derives the same page in place; it writes only `deliverables/` and the close-out files (`index`/`hot`/`log`).
 

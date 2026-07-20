@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "re:Harmoniz — evolution loop for research wikis. Single-plugin marketplace.",
-    "version": "0.13.0"
+    "version": "0.14.0"
   },
   "plugins": [
     {
       "name": "reharm",
       "source": "./",
       "description": "Evolution loop for research wikis: claims harden generation by generation under mutation (revision) and natural selection (adversarial verification). Skills: reharm:root, reharm:reharmonization, reharm:modal-interchange, reharm:critique, reharm:pushing, reharm:experiment-design, reharm:ensemble, reharm:loop-setup.",
-      "version": "0.13.0",
+      "version": "0.14.0",
       "author": {
         "name": "hwang-yeonsu",
         "url": "https://github.com/hwang-yeonsu"

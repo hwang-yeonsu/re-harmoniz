@@ -693,6 +693,49 @@ class WikiLintTest(unittest.TestCase):
         finding = data["findings"]["missing_frontmatter"][0]
         self.assertEqual(finding["invalid"], {"origin": "tertiary"})
 
+    # ---- evidence_class (0.14.0 §2/§3 class-calibrated gates) ----
+
+    def test_evidence_class_valid_values(self):
+        for cls, stem in (
+            ("literature", "문헌클레임"),
+            ("field", "실측클레임"),
+            ("design", "설계클레임"),
+        ):
+            write(
+                self.scope,
+                f"wiki/claims/{stem}.md",
+                node_text(
+                    title=stem,
+                    body="[[문헌클레임]] [[실측클레임]] [[설계클레임]]",
+                    extra_fm=f"evidence_class: {cls}",
+                ),
+            )
+        data = self.lint()
+        self.assertTrue(data["clean"])
+        self.assertEqual(data["counts"]["missing_frontmatter"], 0)
+
+    def test_evidence_class_invalid_flagged(self):
+        self._clean_pair()
+        write(
+            self.scope,
+            "wiki/claims/무효클래스.md",
+            node_text(
+                title="bad-class",
+                body="[[노드A]]",
+                extra_fm="evidence_class: anecdotal",
+            ),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드C.md",
+            node_text(title="C", body="[[무효클래스]]"),
+        )
+        data = self.lint()
+        self.assertFalse(data["clean"])
+        finding = data["findings"]["missing_frontmatter"][0]
+        self.assertEqual(finding["path"], "wiki/claims/무효클래스.md")
+        self.assertEqual(finding["invalid"], {"evidence_class": "anecdotal"})
+
     # ---- allowed external wikilinks (0.9.0 scope CLAUDE.md allowlist) ----
 
     def test_allowed_external_wikilinks_split_from_unresolved(self):
