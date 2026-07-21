@@ -15,7 +15,7 @@ It's all plain Markdown you own. The entire protocol is one file: [`EVOLUTION.md
 Most knowledge tools — Zettelkasten vaults, Notion, "LLM wiki" note stores — **accumulate**: every note you add counts equally, and the pile only grows. re:Harmoniz is built for **research**, where most assertions are wrong until proven otherwise — so it does the opposite. It **grades and hardens** what you know:
 
 - **Reliability is earned, not assumed.** Every claim is pressure-tested by three adversarial refuters; only survivors gain a generation. Average reliability rises monotonically instead of drifting with the pile.
-- **Maturity is evidence-gated, not age-based.** `seed → developing → hardened → evergreen` unlocks on independent sources and real-world field evidence — not on how long a note has sat untouched.
+- **Maturity is evidence-gated, not age-based.** `seed → developing → hardened → evergreen` unlocks on evidence in the claim's own currency — independent sources for literature claims, replication for facts you measured yourself, and real-world field evidence for `evergreen` — not on how long a note has sat untouched.
 - **Disagreement stays on the record.** Contradictions live on *both* nodes until you adjudicate; collapsed claims are deprecated, never deleted. The wiki defends its own conclusions.
 
 That's the difference: a **research-claim evolution engine specialized for hardening what you know**, not a note store.

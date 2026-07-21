@@ -40,7 +40,7 @@ A spawned sub-agent does **not** inherit `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_SKI
 
 - `lens` — echo the lens you were assigned.
 - `refuted` — `true` when the node fails your lens. **When uncertain, `true`.**
-- `reason` — the specific flaw, in the scope's content language, concrete enough for the orchestrator to absorb into `## Objections & Limits` on a partial collapse.
+- `reason` — the specific flaw, in the scope's content language, concrete enough for the orchestrator to archive in the E#### report and compress into the node's current `## Objections & Limits` (§2) on a partial collapse.
 - `counter_evidence` — what refutes it (a quote mismatch, a dependent source, a counterexample, a contradicting neighbor conclusion), or `""` when `refuted` is `false`.
 
 ## Hard constraints

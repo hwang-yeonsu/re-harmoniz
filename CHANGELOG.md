@@ -4,6 +4,57 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] — 2026-07-20
+
+**Density: practical conclusions stop drowning in the record of their own verification.** Live-wiki
+operation (10 days, 26 sessions, 69 nodes) surfaced the pattern: the §8 layering — results in nodes,
+process in reports — was declared but nowhere enforced. Refuter narratives piled up in
+`## Objections & Limits` until they matched the body in volume (133 vs 141 non-empty lines across
+one scope's claims), one experiment report re-atomized into nine sibling seeds, a single maturity
+ladder priced every claim in peer-review currency (hardened 4 / evergreen 0 after 26 sessions), and
+the deliverable's global-min confidence floor stamped a decisive answer "low". Protocol v0.6 → v0.7.
+Every change is additive — legacy nodes stay valid with no migration (absent `evidence_class` =
+`literature`, the old behavior).
+
+### Added
+
+- **`evidence_class: literature | field | design`** (§2, optional): the developing→hardened gate now
+  trades in the claim's own currency (§3) — independent sources for `literature`; **replication**
+  (≥2 `## Field Evidence` entries under materially different conditions) for `field` facts measured
+  on the scope's own data, for which an independent external source often cannot exist; an adoption
+  record for `design` decisions, which also sit outside the decay calendar. A `field` claim reaching
+  `hardened` already holds the evergreen entry count — only the §3 reproducibility residue remains —
+  and `modal-interchange` stamps the class at mashup mint by the mashup's own verification path
+  (donor class is not inherited). `wiki-lint.py` validates the enum when present (+2 tests, 40 in
+  `test_wiki_lint.py`).
+- **critique merge verdict**: inert seeds (3+ sessions, zero challenges) surface in the backlog as
+  merge candidates; a merged claim folds into its parent (sources unioned, assertion absorbed) and
+  keeps a one-line pointer body under `status: deprecated` — §3's never-delete holds, inbound
+  wikilinks keep resolving. A contradiction pair is adjudicated, never merged.
+
+### Changed
+
+- **`## Objections & Limits` is the current set, not an archive** (§2, §4 Phase D): active boundary
+  conditions only, ≤2 lines each; absorbing a refutation *rewrites* the section. Resolved
+  objections, refuter narratives, and adjudication dates live in the E#### report and git (§8) —
+  relocation, never loss.
+- **Field-origin sources atomize conservatively** (§1; root + per-source): the `sources/` page owns
+  the run detail (metrics, parameters, per-hypothesis outcomes with conditions); ≤3 draft claims per
+  report, decision-changing findings only — the rest reaches the wiki as `## Field Evidence` on the
+  claims the run served, never as freestanding nodes.
+- **E#### report length discipline** (§11.1): target ≤40 lines — mutations ≤2 lines per target,
+  verdicts one line per node with reason clauses only for refuted lenses and re-judgings (that
+  clause is the archive of what the node compresses away), promotions one line each; `log.md`
+  entries are exactly one line.
+- **Deliverable floor = weakest *verdict-changing* claim** (§14; ensemble): load-bearing is defined
+  as "negating it would change a verdict sentence" — exactly the `## What would change this
+  conclusion` set; background citations never set the floor; multi-axis answers may state per-axis
+  floors. `## Answer` opens with a three-line bottom line (verdict · condition · next action) a
+  practitioner can act on alone.
+- **pushing reads `evidence_class`** (rows 5–6): a field-class `developing` claim short of the
+  replication currency routes to experiment-design — more searching cannot replicate a measurement;
+  the §13 deep-research escalation signal narrows to literature-class claims.
+
 ## [0.13.0] — 2026-07-15
 
 **Experiments stop starving behind the frontier, and get a real executor.** Two changes born from

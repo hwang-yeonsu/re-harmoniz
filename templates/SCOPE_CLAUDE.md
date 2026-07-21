@@ -21,7 +21,7 @@
 
 - Every claim carries explicit confidence: high (multiple independent sources agree) / medium (single good source) / low (speculation, unverified).
 - Mutations and new assertions pass only if **≥2 of 3 refuters** (coherence / evidence / reproducibility lenses) fail to refute them. When uncertain, refute.
-- Valid objections are never discarded — absorb them into the node's `## Objections & Limits`.
+- Valid objections are never discarded — absorb them into the node's `## Objections & Limits`, kept compressed to the *current* set (≤2 lines each; resolved objections live on in the session report and git — EVOLUTION.md §2).
 
 ## 5. Seed Source Candidates (input queue for reharm:root)
 
