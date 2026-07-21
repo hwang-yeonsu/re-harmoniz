@@ -34,8 +34,9 @@ Checks (EVOLUTION.md §4 Phase E.3):
      `legacy_question_status` warnings), experiment `claim:` may be a string
      or a list, sources may carry `origin: primary|secondary` +
      `derived_from:`, claims/mashups may carry
-     `evidence_class: literature|field|design` (absent = literature, §3),
-     and mashup `borrowed:` snapshots must carry
+     `evidence_class: literature|field|design` (absent = literature, §3;
+     like `origin`, the enum is validated on any page where the key
+     appears), and mashup `borrowed:` snapshots must carry
      node/scope/status_at_mint/gen_at_mint/date.
 
 `clean` = the five checks all count zero (`unresolved_external`,
