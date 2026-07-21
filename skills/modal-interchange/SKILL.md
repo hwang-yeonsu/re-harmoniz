@@ -16,7 +16,7 @@ Borrow chords (knowledge) from a parallel key (another scope). **Read `${CLAUDE_
    - ③ **Drill-down**: read at most **5** candidate pages in full after shortlisting.
 3. **Contrast**: shortlist pairs where ① the same problem meets different solutions ② one side's `## Objections & Limits` is answered by the other side's mechanism ③ claims directly contradict across scopes.
 4. **Synthesize** adopted pairs into **scope A's `wiki/mashups/`**:
-   - Frontmatter per EVOLUTION.md §2 with mandatory new-node defaults (`type: mashup`, `status: seed`).
+   - Frontmatter per EVOLUTION.md §2 with mandatory new-node defaults (`type: mashup`, `status: seed`). Set `evidence_class` by the mashup's **own** verification path, not the donor's class — keep the `literature` default when the synthesis can harden on cited documents; set `field` when only a measurement in scope A can confirm its conclusion (a mashup is a new assertion with its own §3 gate currency).
    - **Mint a `borrowed:` snapshot** (§2) — one entry per donor node: `node` (wikilink), `scope` (absolute donor-scope path), `status_at_mint`, `gen_at_mint`, `date`. This is the drift baseline reharmonization Phase A checks; without it a later donor demotion silently rots the mashup.
    - Scope B's knowledge is **cited by wikilink only — never copied or moved** (single source of truth). Scope B's nodes are never edited.
    - `sources:` lists wikilinks to both originating nodes.

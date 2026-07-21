@@ -22,8 +22,11 @@ Every change is additive — legacy nodes stay valid with no migration (absent `
   trades in the claim's own currency (§3) — independent sources for `literature`; **replication**
   (≥2 `## Field Evidence` entries under materially different conditions) for `field` facts measured
   on the scope's own data, for which an independent external source often cannot exist; an adoption
-  record for `design` decisions, which also sit outside the decay calendar. `wiki-lint.py` validates
-  the enum when present (+2 tests, 40 total).
+  record for `design` decisions, which also sit outside the decay calendar. A `field` claim reaching
+  `hardened` already holds the evergreen entry count — only the §3 reproducibility residue remains —
+  and `modal-interchange` stamps the class at mashup mint by the mashup's own verification path
+  (donor class is not inherited). `wiki-lint.py` validates the enum when present (+2 tests, 40 in
+  `test_wiki_lint.py`).
 - **critique merge verdict**: inert seeds (3+ sessions, zero challenges) surface in the backlog as
   merge candidates; a merged claim folds into its parent (sources unioned, assertion absorbed) and
   keeps a one-line pointer body under `status: deprecated` — §3's never-delete holds, inbound
