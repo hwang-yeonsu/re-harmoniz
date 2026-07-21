@@ -2,6 +2,8 @@
 
 **English** · [한국어](README.ko.md)
 
+[![latest version](https://img.shields.io/github/v/release/hwang-yeonsu/re-harmoniz?label=version&sort=semver&color=blue)](https://github.com/hwang-yeonsu/re-harmoniz/releases)
+
 > **An evolution loop for research wikis** — a Claude Code plugin (`reharm`).
 
 **re:Harmoniz = re·search + re·harmoniz·ation.** Hold your research *question* fixed and re-derive what sits beneath it — the **claims, and the evidence they rest on** — generation after generation. (The name borrows *reharmonization* from music: keep the melody, rework the chords under it.)

@@ -2,6 +2,8 @@
 
 [English](README.md) · **한국어**
 
+[![최신 버전](https://img.shields.io/github/v/release/hwang-yeonsu/re-harmoniz?label=version&sort=semver&color=blue)](https://github.com/hwang-yeonsu/re-harmoniz/releases)
+
 > **연구 위키를 위한 진화 루프(evolution loop)** — Claude Code 플러그인 (`reharm`).
 
 **re:Harmoniz = re·search(연구) + re·harmoniz·ation(재화성).** 연구 *질문*은 고정해 둔 채, 그 아래를 떠받치는 것 — **주장(claim)과 그 주장이 딛고 선 근거** — 을 세대를 거듭하며 다시 도출합니다. (이름은 음악 용어 *재화성(reharmonization)*에서 왔습니다: 멜로디는 그대로 두고 그 아래 화성만 다시 짠다는 뜻입니다.)
