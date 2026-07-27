@@ -1014,6 +1014,18 @@ class DecisionAtStakeTest(unittest.TestCase):
             self.lint()["findings"]["experiment_missing_decision_at_stake"], []
         )
 
+    def test_template_trailing_comment_is_tolerated(self):
+        # the §2 experiment template annotates the heading with an HTML comment;
+        # a node copied from it verbatim does name a decision
+        self._exp(
+            "planned",
+            "## Decision at stake            <!-- §12 decision gate, pre-registered -->\n"
+            "- CONFIRM → ship it\n- REFUTE → redesign\n\n[[클레임A]]",
+        )
+        self.assertEqual(
+            self.lint()["findings"]["experiment_missing_decision_at_stake"], []
+        )
+
     def test_legacy_imported_node_is_not_reported(self):
         # additive change: pre-registrations that already ran stay valid
         self._exp("imported", "## Hypothesis\nH. [[클레임A]]")

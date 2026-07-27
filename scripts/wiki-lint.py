@@ -475,7 +475,11 @@ def check_forward_looking(node_pages: list[dict]) -> list[dict]:
     return findings
 
 
-DECISION_AT_STAKE_RE = re.compile(r"^##\s+Decision at stake\s*$", re.MULTILINE)
+# a trailing HTML comment is tolerated: the §2 experiment template annotates the
+# heading that way, and a node copied from it verbatim does name a decision
+DECISION_AT_STAKE_RE = re.compile(
+    r"^##\s+Decision at stake\s*(<!--.*)?$", re.MULTILINE
+)
 LIVE_EXPERIMENT_STATUSES = {"planned", "running"}
 
 

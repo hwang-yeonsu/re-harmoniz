@@ -47,7 +47,7 @@ touches. All changes additive; legacy nodes and existing pre-registrations stay 
   written before the gate already ran, and §4 forbids editing a frozen design record. Warning, not
   clean-breaking: whether a named decision is *real* is a judgement the gate makes with the user.
 
-Tests: `test_wiki_lint.py` 40 → 54 (+14); suite 47 → 61.
+Tests: `test_wiki_lint.py` 40 → 55 (+15); suite 47 → 62.
 
 ### Fixed
 
