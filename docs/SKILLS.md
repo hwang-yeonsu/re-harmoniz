@@ -51,7 +51,7 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 **Reach for it when:** new doubt or new material has landed on a claim, or a frontier node is ripe to push. This is the core loop — the skill the project is named after.
 
-**What happens:** one full cycle — **Retrospect → Target (you approve which nodes) → Mutate (revise, decompose new sources, hunt counter-evidence) → Natural Selection (three refuters, one lens each — coherence · evidence · reproducibility; ≥2/3 must survive) → Record (`E####.md` + `index`/`hot` refresh)**. Survivors gain a generation and may promote (`seed → developing → hardened → evergreen`).
+**What happens:** one full cycle — **Retrospect → Target (you approve which nodes) → Mutate (revise, decompose new sources, hunt counter-evidence; when the new material is an owner design decision, also sweep the experiment queue for pre-registrations it just made pointless) → Natural Selection (three refuters, one lens each — coherence · evidence · reproducibility; ≥2/3 must survive) → Record (`E####.md` + `index`/`hot` refresh)**. Survivors gain a generation and may promote (`seed → developing → hardened → evergreen`).
 
 **What it won't do:** it won't promote anything that doesn't survive refutation, and it won't touch a node you didn't approve as a target. Getting past the gates takes the claim's own evidence currency (EVOLUTION.md §3): independent sources for a literature claim, replication for a fact you measured yourself, an adoption record for a design decision — and real-world field evidence for `evergreen`. It can't be willed.
 
@@ -85,11 +85,11 @@ Every skill also fires on plain language (English or Korean), so you can say wha
 
 ### `reharm:experiment-design` — design real-world proof
 
-**Reach for it when:** a claim is stuck one step from the top — surviving refutation but blocked at the `hardened → evergreen` gate because it has no field evidence.
+**Reach for it when:** a claim is stuck one step from the top — surviving refutation but blocked at the `hardened → evergreen` gate because it has no field evidence — **and a result would actually change what you do.** Being stuck at the gate is the *occasion*, not the justification; the skill checks the justification first (below).
 
-**What happens:** it pre-registers the experiment that would settle it: a hypothesis, a **CONFIRM/REFUTE criterion fixed before the run** (so the result can't be rationalized after the fact), the conditions to record, and a plain-language goal handed to a runner — your external runner if the scope names one, else the plugin's default **runner-worker**, recorded on the node so you (or the autonomous loop) can launch it later.
+**What happens:** first the **decision gate** — you name, in one line each, what differs *outside the wiki* under CONFIRM versus REFUTE. Then it pre-registers the experiment that would settle it: a hypothesis, that `## Decision at stake` pair, a **CONFIRM/REFUTE criterion fixed before the run** (so the result can't be rationalized after the fact), the conditions to record, and a plain-language goal handed to a runner — your external runner if the scope names one, else the plugin's default **runner-worker**, recorded on the node so you (or the autonomous loop) can launch it later.
 
-**What it won't do:** it never runs code. It designs and records only; the actual run happens elsewhere, and its result comes back as a new source.
+**What it won't do:** it never runs code — it designs and records only; the actual run happens elsewhere, and its result comes back as a new source. It also **won't pre-register a decision-free experiment**: if CONFIRM and REFUTE lead to the same action, or the only thing that moves is a maturity label ("the evergreen gate opens"), it stops and sends you to `reharm:reharmonization` instead. A run whose every outcome is a relabel is record-keeping, not an experiment.
 
 **Then what:** launch the run per the `## Handoff` block (spawn the default runner-worker, or invoke your external runner) → `reharm:root` the result → the next `reharm:reharmonization` imports it under `## Field Evidence`, which is what opens the `evergreen` gate.
 

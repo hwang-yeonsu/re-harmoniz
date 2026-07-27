@@ -86,6 +86,8 @@ aliases: []                     # english kebab-case aliases (search aid, §9)
 
 **Mandatory defaults for new nodes:** `status: seed`, `generation: 1`, `confidence: low`, `challenges_survived: 0`, `last_challenged: <creation date>`.
 
+**Node bodies assert what is known, never what to do next.** A `claim`/`mashup` body states the assertion and its boundary; **plans — "the next step is X", "this needs Y next" — belong in `hot.md`, the deliverable's next-steps section, or a `questions/` node.** The reason is mechanical, not stylistic: plans expire when a decision lands, but claims are graded on truth and carry no expiry, so a stale plan parked in a node body survives every cadence check. And because the synthesis step (`reharm:ensemble`) reads node *bodies* as raw material, such a line is copied into the deliverable, then into `hot.md`, then re-read by the next synthesis — prose citing prose in a closed loop that no `status` field can interrupt. `wiki-lint.py` reports these as `forward_looking_in_node_body` (warning).
+
 **Evidence class (optional).** `evidence_class:` declares which currency the §3 evidence gate trades in: **`literature`** — the assertion stands on external documents (the default when the key is absent, so every legacy node stays valid with no migration); **`field`** — a fact measured on the scope's own data or system, for which an independent external source often *cannot* exist (its currency is replication, not citation); **`design`** — a decision the owner has adopted for this scope, recorded and challengeable but not provable by literature (its currency is the owner's adjudication). §3 calibrates the developing→hardened gate per class; `wiki-lint.py` validates the enum when present. A pure design *rationale* usually belongs in a design-intent `sources/` page rather than a claim — mint a `design`-class claim only when the decision itself must survive refutation.
 
 **Cross-scope mashups carry a `borrowed:` snapshot** (minted by `reharm:modal-interchange`) — one entry per donor node, recording the state the knowledge had when borrowed:
@@ -133,13 +135,17 @@ type: experiment
 title: "What this experiment puts under test, declarative"
 created: 2026-06-19
 updated: 2026-06-19
-status: planned                 # planned | running | imported | abandoned
+status: planned                 # planned | running | imported | abandoned | retired
 claim: "[[target-claim]]"       # the claim(s)/question(s) this experiment serves — a wikilink or a list
 runner: "/autoresearch:plan"    # optional: external bridge entry point (tool-agnostic, §12)
 ---
 
 ## Hypothesis
 The target claim restated as the proposition under test.
+
+## Decision at stake            <!-- §12 decision gate, pre-registered -->
+- CONFIRM → <what changes **outside the wiki**: a design, build, deploy, or spend decision>
+- REFUTE  → <what changes **outside the wiki**, and it must differ from the CONFIRM row>
 
 ## Confirm / Refute             <!-- §5 reproducibility lens, pre-registered -->
 - CONFIRM if: <observable / numeric criterion fixed before the run>
@@ -157,7 +163,7 @@ The target claim restated as the proposition under test.
 - the exact next command, run by the user in the code workspace (never here).
 ```
 
-**Mandatory keys:** `type: experiment`, `title`, `created`, `status`, `claim`. `claim:` is a single wikilink **or a list** — one run routinely serves several claims and even an open question at once (field-evidenced), and forcing a singular key just misdeclares that. The four evolution-mechanic keys (`confidence`, `generation`, `last_challenged`, `challenges_survived`) are **omitted by design** — an experiment node is not graded, only its imported *result* is (against the pre-registered criterion). `status` uses the experiment lifecycle, never the maturity ladder.
+**Mandatory keys:** `type: experiment`, `title`, `created`, `status`, `claim`. `claim:` is a single wikilink **or a list** — one run routinely serves several claims and even an open question at once (field-evidenced), and forcing a singular key just misdeclares that. The four evolution-mechanic keys (`confidence`, `generation`, `last_challenged`, `challenges_survived`) are **omitted by design** — an experiment node is not graded, only its imported *result* is (against the pre-registered criterion). `status` uses the experiment lifecycle, never the maturity ladder. **`## Decision at stake` is required for any pre-registration that is still live** (`planned`/`running`) — a pre-registration that cannot name a decision is a record-keeping exercise, not an experiment (§12 decision gate). The requirement is scoped to live nodes so the rule stays additive: records written before the gate existed already ran, and §4 forbids editing a frozen design record. `wiki-lint.py` reports a live node without the section as `experiment_missing_decision_at_stake` (**warning** — whether a named decision is *real* is a judgement the gate makes with the user, not something a linter can settle). **`retired`** is for a pre-registration whose decision died rather than whose run failed — the design record stays verbatim (§4 forbids post-hoc redefinition), only the queue state changes; it requires a pointer to the deciding source and a re-open condition, and is distinct from `abandoned` (a run that produced nothing usable). An already-`imported` experiment whose *re-run* is retired keeps `status: imported` and carries the retirement as a banner — the node is not the thing being retired, the queued re-run is.
 
 ### Question node (lifecycle)
 
@@ -247,6 +253,7 @@ Per target:
 - If new `.raw/` material exists: decompose it and recombine with existing nodes.
 - **Field-origin results** (the scope's own experiment/real-world output — by convention under `.raw/experiments-results/`) import into the target claim's `## Field Evidence`, carrying their conditions (§2) — not into `## Objections & Limits`. Their atomization at root time is conservative (§1: detail on the source page, ≤3 decision-changing claims). External material (papers, web, repos) is seed, as above. Ambiguous origin → confirm with the user in Phase B.
   - **If a `type: experiment` pre-registration exists for the target** (§2, §12): judge the result against its **pre-registered** `## Confirm / Refute` criterion — never a post-hoc one. CONFIRM → append to `## Field Evidence` with conditions (the evergreen gate, §3); REFUTE → the counterexample feeds Phase D's reproducibility lens (absorbed into `## Objections & Limits`, or `deprecated` on total collapse). Either way flip the experiment node to `status: imported`; a run that never produced a usable result → `status: abandoned`.
+- **Owner design decisions** (`.raw/design-decisions/` by convention — scope-redefinition declarations, not literature) absorb like any `.raw/` material, but they carry a mandatory side-effect step: **sweep the experiment queue.** For every `type: experiment` node that is neither `retired` nor already carrying a recorded re-run retirement (the `imported`-plus-banner case below), re-read its `## Decision at stake` (§2) and ask whether this decision just closed the action named there. If the two stake-branches have collapsed to the same outcome, the pre-registration has lost its decision value and is a **retirement candidate** — report it with the collapsed branch quoted; never auto-retire (Phase B spirit: the user picks). This step exists because a pre-registration can be decision-relevant *when written* and lose that later, and nothing else in the loop re-checks it — the design record itself is frozen by the no-post-hoc-redefinition rule, so it cannot notice its own obsolescence. Retiring a queued re-run does **not** touch the node's hypothesis or criterion.
 - If new evidence or counterexamples are needed: **web search** (policy in §6).
 - Contrast / compare / integrate with adjacent nodes → create `mashups/` nodes.
 
@@ -472,6 +479,7 @@ Three layers, each owning one thing — and they must not bleed into each other:
 - **Tool-agnostic.** The protocol fixes the *seam*, not the tool. Any runner is acceptable; `autoresearch` is the reference. The runner entry point is recorded per node as `runner:` (§2) and/or per scope in `CLAUDE.md` (§10) — never inferred.
 - **The human crosses the workspace boundary.** The design skill stops at a handoff command and never executes it; the user carries the spec into the code workspace and runs the planner there. The research scope and the code workspace are usually different directories/repos, so this hop is a deliberate boundary crossing, not a missing automation.
 - **Return path.** The runner's report lands in `.raw/experiments-results/` (the field-origin convention, §1) → `reharm:root` summarizes it into `sources/` → `reharm:reharmonization` Phase C imports it, judged against the node's pre-registered criterion (§4 Phase C), and flips the experiment node to `imported`.
+- **Decision gate.** Only experiments that can change an action get pre-registered. Before fixing a criterion, name — in the node's `## Decision at stake` (§2) — what differs **outside the wiki** under CONFIRM versus REFUTE. The two rows must differ, and neither may be a wiki-internal event: "the evergreen gate opens", "the node is promoted", "the claim's scope narrows" all **fail** the gate, because a maturity label is bookkeeping, not a decision. If the honest answer is that nothing outside the wiki moves either way, the run is a record-keeping exercise — redirect to `reharm:reharmonization` (the claim can still be scoped, corroborated, and refuted without a measurement). Note the gate is about the *decision context*, while the testability gate below is about the *claim*: the two are independent, and a proposal must clear both. A gate cleared at authoring time can still lapse later — Phase C's design-decision sweep (§4) is what catches that.
 - **Testability gate.** Only empirically testable claims get an experiment. Definitional / analytical / historical claims have no runnable result; their evidence path is independent-source corroboration (§3 developing→hardened) and the §5 refuters — the design skill detects this and redirects rather than forcing a metric.
 - **`reharm:pushing` only points here.** It detects a claim stuck at the evergreen gate and recommends the design skill (read-only, §3/§4 "nothing is auto-decided"); it never authors the spec itself.
 

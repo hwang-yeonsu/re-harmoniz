@@ -4,6 +4,56 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] — 2026-07-27
+
+**A pre-registration can outlive the decision it served.** A live scope retired a field experiment
+after tracing why it kept resurfacing as "the next step" three synthesis rounds in a row: an owner
+decision had, five days earlier, collapsed the branch the experiment existed to resolve, and every
+remaining outcome mapped to a wiki-internal relabel (`evergreen gate opens`, `scope narrows`) rather
+than to any action. Two gaps made that invisible. The §12 testability gate asks whether the *claim*
+is empirically testable — never whether the *result* changes anything — so a decision-free run clears
+it. And nothing re-checks a pre-registration when an upstream decision lands, while §4's no-post-hoc-
+redefinition rule (correctly) freezes the design record, leaving it unable to notice its own
+obsolescence. A third gap explained the propagation: the stale plan lived in a **claim body**, and
+because `reharm:ensemble` reads node bodies as raw material, it was copied into the deliverable, then
+into `hot.md`, then re-read by the next synthesis — prose citing prose, a loop no `status` field
+touches. All changes additive; legacy nodes and existing pre-registrations stay valid.
+
+### Added
+
+- **`## Decision at stake`** (§2, §12 — required on new `type: experiment` nodes): one line for
+  CONFIRM, one for REFUTE, each naming what differs **outside the wiki**. The rows must differ, and
+  a maturity label is not a decision — "the evergreen gate opens" fails the gate. `experiment-design`
+  runs this as step 3, *before* the testability gate, and redirects to `reharmonization` when both
+  branches collapse to one outcome. The two gates are independent: one is about the decision context,
+  the other about the claim, and a proposal must clear both.
+- **Design-decision sweep** (§4 Phase C, `reharmonization`): absorbing owner material from
+  `.raw/design-decisions/` now carries a mandatory side-effect step — re-read every non-`retired`
+  experiment's `## Decision at stake` and report those whose branches this decision just collapsed.
+  Reports candidates; never auto-retires (Phase B spirit).
+- **`status: retired`** for experiments (§2): the decision died, not the run — distinct from
+  `abandoned` (a run that produced nothing usable). Requires a pointer to the deciding source and a
+  re-open condition; the design record stays verbatim. An already-`imported` experiment whose *re-run*
+  is retired keeps `imported` and carries a banner: the node is not what gets retired, the queued
+  re-run is.
+- **Node-body hygiene rule** (§2) + **`forward_looking_in_node_body`** lint warning: `claim`/`mashup`
+  bodies assert what is known; plans belong in `hot.md`, the deliverable's next-steps, or
+  `questions/`. Plans expire when a decision lands, but claims carry no expiry, so a parked plan
+  survives every cadence check. Quoted and backticked spans are stripped before matching, so a merge
+  record citing the line it just retired does not trip the check.
+
+- **`experiment_missing_decision_at_stake`** lint warning: a `planned`/`running` experiment with no
+  `## Decision at stake` section. Scoped to live nodes so the rule is additive — pre-registrations
+  written before the gate already ran, and §4 forbids editing a frozen design record. Warning, not
+  clean-breaking: whether a named decision is *real* is a judgement the gate makes with the user.
+
+Tests: `test_wiki_lint.py` 40 → 54 (+14); suite 47 → 61.
+
+### Fixed
+
+- `wiki-lint.py` now reports **file-relative** line numbers for body findings (`body_offset` on the
+  page record); previously body-relative numbers would have pointed into the frontmatter.
+
 ## [0.14.0] — 2026-07-20
 
 **Density: practical conclusions stop drowning in the record of their own verification.** Live-wiki

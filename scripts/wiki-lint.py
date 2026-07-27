@@ -107,7 +107,7 @@ VALID_ENUMS = {
 # maturity ladder (§3), and questions use their own lifecycle with the maturity
 # values tolerated as legacy (§2 — reported via `legacy_question_status`).
 # check_frontmatter swaps the right set in per type.
-EXPERIMENT_STATUSES = {"planned", "running", "imported", "abandoned"}
+EXPERIMENT_STATUSES = {"planned", "running", "imported", "abandoned", "retired"}
 QUESTION_STATUSES = {"open", "answered", "escalated", "archived"}
 # `borrowed:` snapshot subkeys minted by modal-interchange (§2) — the drift
 # baseline reharmonization Phase A compares against.
@@ -250,11 +250,13 @@ def read_page(md: Path) -> dict | None:
     if len(text.encode("utf-8")) > MAX_BODY_BYTES:
         return None
     fm, body = parse_frontmatter(text)
+    body_offset = len(text.splitlines()) - len(body.splitlines())
     return {
         "path": md.relative_to(SCOPE_ROOT).as_posix(),
         "stem": md.stem,
         "fm": fm,
         "body": body,
+        "body_offset": body_offset,  # frontmatter lines, for file-relative reporting
         "links": extract_wikilinks(text),
     }
 
@@ -432,6 +434,75 @@ def check_orphans(node_pages: list[dict]) -> list[str]:
         if inbound[page["stem"]] == 0:
             orphans.append(page["path"])
     return sorted(orphans)
+
+
+FORWARD_LOOKING_RE = re.compile(
+    r"(다음\s*진전|다음\s*단계|다음으로\s*해야|next\s+step|next\s+move)",
+    re.IGNORECASE,
+)
+# quoted spans are citations of a plan, not the node asserting one (e.g. a merge
+# record quoting the stale line it just retired) — strip them before matching
+QUOTED_SPAN_RE = re.compile(
+    r"`[^`]*`|\"[^\"]*\"|\u201c[^\u201d]*\u201d|\u2018[^\u2019]*\u2019"
+)  # ASCII ' is excluded on purpose: apostrophes ("don't … it's") would pair up
+   # and swallow the text between them, hiding real matches
+
+
+def check_forward_looking(node_pages: list[dict]) -> list[dict]:
+    """§2 — claim/mashup bodies assert what is known, never what to do next.
+
+    Plans expire when a decision lands; claims carry no expiry, so a plan parked
+    in a node body outlives every cadence check and gets copied forward by the
+    synthesis step. Warning only: phrasing is a judgement call.
+    """
+    findings: list[dict] = []
+    for page in node_pages:
+        if page["kind"] not in EVOLVING_DIRS:
+            continue
+        if (page["fm"] or {}).get("status") == "deprecated":
+            continue
+        for lineno, line in enumerate((page.get("body") or "").splitlines(), 1):
+            match = FORWARD_LOOKING_RE.search(QUOTED_SPAN_RE.sub("", line))
+            if match:
+                findings.append(
+                    {
+                        "path": page["path"],
+                        "line": lineno + page.get("body_offset", 0),
+                        "match": match.group(0),
+                        "hint": "move the plan to hot.md / deliverable next-steps / questions/",
+                    }
+                )
+    return findings
+
+
+DECISION_AT_STAKE_RE = re.compile(r"^##\s+Decision at stake\s*$", re.MULTILINE)
+LIVE_EXPERIMENT_STATUSES = {"planned", "running"}
+
+
+def check_decision_at_stake(pages: list[dict]) -> list[dict]:
+    """§12 decision gate — a live pre-registration must name a decision.
+
+    Scoped to `planned`/`running` so the change stays additive: pre-registrations
+    written before the gate existed already ran, and §4 forbids editing a frozen
+    design record. Warning only — whether a named decision is *real* is a
+    judgement the gate makes with the user, not something a regex can settle.
+    """
+    findings: list[dict] = []
+    for page in pages:
+        if page["kind"] != "experiments":
+            continue
+        if (page["fm"] or {}).get("status") not in LIVE_EXPERIMENT_STATUSES:
+            continue
+        if DECISION_AT_STAKE_RE.search(page.get("body") or ""):
+            continue
+        findings.append(
+            {
+                "path": page["path"],
+                "hint": "add `## Decision at stake` (§12): one CONFIRM line and one "
+                "REFUTE line, each naming what changes outside the wiki",
+            }
+        )
+    return findings
 
 
 def check_contradictions(node_pages: list[dict]) -> list[dict]:
@@ -630,6 +701,8 @@ def run(want_json: bool) -> int:
     external = [e for e in external if e["target"] not in allowlist]
     orphans = check_orphans(node_pages)
     contradictions = check_contradictions(node_pages)
+    forward_looking = check_forward_looking(node_pages)
+    no_decision = check_decision_at_stake(node_pages)
     duplicate_stems = check_duplicate_stems()
     status_census = compute_status_census(node_pages)
     census_drift = check_census_drift(status_census)
@@ -647,6 +720,8 @@ def run(want_json: bool) -> int:
         "legacy_question_status": len(legacy_question),
         "census_drift": len(census_drift),
         "eval_findings": len(eval_findings),
+        "forward_looking_in_node_body": len(forward_looking),
+        "experiment_missing_decision_at_stake": len(no_decision),
     }
     clean = all(
         counts[k] == 0
@@ -677,6 +752,8 @@ def run(want_json: bool) -> int:
             "legacy_question_status": legacy_question,
             "census_drift": census_drift,
             "eval_findings": eval_findings,
+            "forward_looking_in_node_body": forward_looking,
+            "experiment_missing_decision_at_stake": no_decision,
         },
     }
 
@@ -700,6 +777,14 @@ def run(want_json: bool) -> int:
         ("legacy question status (§2 pre-lifecycle values)", legacy_question),
         ("census drift (warning — refresh index.md)", census_drift),
         ("eval findings (warning — §7 schema v2)", eval_findings),
+        (
+            "forward-looking directives in node bodies (warning — §2 hygiene)",
+            forward_looking,
+        ),
+        (
+            "live experiments without `## Decision at stake` (warning — §12 gate)",
+            no_decision,
+        ),
     ):
         print(f"\n## {label}: {len(items)}")
         for item in items:
