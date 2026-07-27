@@ -860,5 +860,185 @@ class WikiLintTest(unittest.TestCase):
         self.assertEqual(finding["missing"], ["question", "updated"])
 
 
+class ForwardLookingInNodeBodyTest(unittest.TestCase):
+    """§2 — claim/mashup bodies assert what is known, never what to do next."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _pair(self, a_body: str, b_body: str = "see [[노드A]]"):
+        write(self.scope, "wiki/claims/노드A.md", node_text(title="A", body=a_body))
+        write(self.scope, "wiki/claims/노드B.md", node_text(title="B", body=b_body))
+
+    def test_plan_in_claim_body_is_reported(self):
+        self._pair("컷오프는 조건화됐다. 다음 진전은 결합 데이터셋 확보다. [[노드B]]")
+        data = self.lint()
+        found = data["findings"]["forward_looking_in_node_body"]
+        self.assertEqual([f["path"] for f in found], ["wiki/claims/노드A.md"])
+        self.assertEqual(found[0]["match"], "다음 진전")
+
+    def test_line_number_is_file_relative_not_body_relative(self):
+        # frontmatter is 10 lines + closing ---, then a blank line: the
+        # assertion sits on file line 13, not body line 2.
+        self._pair("첫 줄은 사실이다.\n다음 단계는 벤치마크다. [[노드B]]")
+        found = self.lint()["findings"]["forward_looking_in_node_body"]
+        path = self.scope / "wiki/claims/노드A.md"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        expected = next(
+            i for i, ln in enumerate(lines, 1) if "다음 단계는 벤치마크다" in ln
+        )
+        self.assertEqual([f["line"] for f in found], [expected])
+
+    def test_quoted_plan_is_not_reported(self):
+        # a merge record citing the stale line it just retired is not the node
+        # asserting a plan — quoted spans are stripped before matching
+        self._pair('종전 결론("다음 진전 = 데이터 확보")은 은퇴했다. [[노드B]]')
+        self.assertEqual(self.lint()["findings"]["forward_looking_in_node_body"], [])
+
+    def test_backticked_plan_is_not_reported(self):
+        self._pair("규칙 이름은 `next step` 패턴이다. [[노드B]]")
+        self.assertEqual(self.lint()["findings"]["forward_looking_in_node_body"], [])
+
+    def test_deprecated_node_is_not_reported(self):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(
+                title="A",
+                status="deprecated",
+                body="다음 진전은 결합 데이터셋 확보다. [[노드B]]",
+            ),
+        )
+        write(self.scope, "wiki/claims/노드B.md", node_text(title="B", body="[[노드A]]"))
+        self.assertEqual(self.lint()["findings"]["forward_looking_in_node_body"], [])
+
+    def test_source_page_is_not_reported(self):
+        # only claims/ and mashups/ evolve; sources and questions may hold plans
+        self._pair("사실 진술. [[노드B]]")
+        write(
+            self.scope,
+            "wiki/questions/질문A.md",
+            "---\ntype: question\ntitle: \"q\"\ncreated: 2026-06-12\nstatus: open\n---\n\n"
+            "다음 단계는 사전등록이다. [[노드A]]\n",
+        )
+        self.assertEqual(self.lint()["findings"]["forward_looking_in_node_body"], [])
+
+    def test_apostrophes_do_not_swallow_the_match(self):
+        # "don't ... it's" must not be treated as one quoted span
+        self._pair("We don't know the next step; it's unclear. [[노드B]]")
+        found = self.lint()["findings"]["forward_looking_in_node_body"]
+        self.assertEqual([f["match"] for f in found], ["next step"])
+
+    def test_warning_does_not_break_clean(self):
+        self._pair("다음 진전은 벤치마크다. [[노드B]]")
+        data = self.lint()
+        self.assertEqual(len(data["findings"]["forward_looking_in_node_body"]), 1)
+        self.assertTrue(data["clean"])
+
+
+class ExperimentRetiredStatusTest(unittest.TestCase):
+    """§2 — `retired`: the decision died, not the run (distinct from `abandoned`)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_retired_is_a_valid_experiment_status(self):
+        write(self.scope, "wiki/claims/클레임A.md", node_text(title="A", body="[[실험A]]"))
+        write(
+            self.scope,
+            "wiki/experiments/실험A.md",
+            experiment_text(title="e", status="retired", claim="[[클레임A]]", body="[[클레임A]]"),
+        )
+        data = self.lint()
+        self.assertEqual(data["findings"]["missing_frontmatter"], [])
+        self.assertTrue(data["clean"])
+
+    def test_unknown_experiment_status_still_rejected(self):
+        write(self.scope, "wiki/claims/클레임A.md", node_text(title="A", body="[[실험A]]"))
+        write(
+            self.scope,
+            "wiki/experiments/실험A.md",
+            experiment_text(title="e", status="superseded", claim="[[클레임A]]", body="[[클레임A]]"),
+        )
+        data = self.lint()
+        self.assertEqual(len(data["findings"]["missing_frontmatter"]), 1)
+        self.assertFalse(data["clean"])
+
+
+class DecisionAtStakeTest(unittest.TestCase):
+    """§12 decision gate — live pre-registrations must name a decision (warning)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _exp(self, status: str, body: str):
+        write(self.scope, "wiki/claims/클레임A.md", node_text(title="A", body="[[실험A]]"))
+        write(
+            self.scope,
+            "wiki/experiments/실험A.md",
+            experiment_text(title="e", status=status, claim="[[클레임A]]", body=body),
+        )
+
+    def test_planned_without_section_is_reported(self):
+        self._exp("planned", "## Hypothesis\nH. [[클레임A]]")
+        found = self.lint()["findings"]["experiment_missing_decision_at_stake"]
+        self.assertEqual([f["path"] for f in found], ["wiki/experiments/실험A.md"])
+
+    def test_planned_with_section_is_clean(self):
+        self._exp(
+            "planned",
+            "## Decision at stake\n- CONFIRM → ship it\n- REFUTE → redesign\n\n[[클레임A]]",
+        )
+        self.assertEqual(
+            self.lint()["findings"]["experiment_missing_decision_at_stake"], []
+        )
+
+    def test_template_trailing_comment_is_tolerated(self):
+        # the §2 experiment template annotates the heading with an HTML comment;
+        # a node copied from it verbatim does name a decision
+        self._exp(
+            "planned",
+            "## Decision at stake            <!-- §12 decision gate, pre-registered -->\n"
+            "- CONFIRM → ship it\n- REFUTE → redesign\n\n[[클레임A]]",
+        )
+        self.assertEqual(
+            self.lint()["findings"]["experiment_missing_decision_at_stake"], []
+        )
+
+    def test_legacy_imported_node_is_not_reported(self):
+        # additive change: pre-registrations that already ran stay valid
+        self._exp("imported", "## Hypothesis\nH. [[클레임A]]")
+        self.assertEqual(
+            self.lint()["findings"]["experiment_missing_decision_at_stake"], []
+        )
+
+    def test_missing_section_is_a_warning_not_clean_breaking(self):
+        self._exp("planned", "## Hypothesis\nH. [[클레임A]]")
+        data = self.lint()
+        self.assertEqual(len(data["findings"]["experiment_missing_decision_at_stake"]), 1)
+        self.assertTrue(data["clean"])
+
+
 if __name__ == "__main__":
     unittest.main()
