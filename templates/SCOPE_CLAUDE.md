@@ -4,6 +4,29 @@
 
 <One paragraph: what this scope researches, and what is explicitly out of scope.>
 
+### Goal & Open Decisions
+
+<!-- EVOLUTION.md §1/§10 — the block every relevance rule reads. Target selection (§4 Phase B),
+     verification depth (§5.1), the pruning sweep (§4 Phase C) and the §7 progress counters are all
+     measured against these rows. Keep them current: settling a decision means flipping its Status,
+     which is what lets the next session prune the branches it carried. -->
+
+**Goal:** <one line: what acting on this research would accomplish>
+
+| ID | Decision to settle | Status |
+|---|---|---|
+| D1 | <a decision taken OUTSIDE the wiki — a design choice, a build/deploy step, a spend, a guardrail> | open |
+
+<!-- Rules of thumb:
+     · A decision is something you DO, not something the wiki records. "The claim reaches hardened"
+       is bookkeeping, not a decision.
+     · Statuses are `open` and `settled`. Anything else reads as open, so a typo can never retire a
+       decision by accident.
+     · Start with one if that is all you have. Starting with none leaves the loop unsteered, and
+       wiki-lint reports it (`no_decisions_declared`) once evolving nodes exist.
+     · Claims bind to these IDs via `serves:` (§2). A claim bound to nothing is a prune candidate,
+       not an error — but a scope full of them means atomization outran the decisions. -->
+
 ## 2. Metadata (the scope is not a code workspace)
 
 - **Code workspace path(s): `<absolute path — fill in>`**
@@ -15,13 +38,17 @@
 
 - This scope follows the **re:Harmoniz protocol** (`reharm` plugin, `EVOLUTION.md`): node schema, maturity state machine, 5-phase evolution sessions, report templates.
 - `.raw/` is immutable. Frequent revision of wiki nodes is encouraged.
-- Unsure what to do next here? Run `/reharm:pushing` (read-only) — it reads this scope's state and recommends the next skill (seed / evolve / adjudicate).
+- Unsure what to do next here? Run `/reharm:pushing` (read-only) — it reads this scope's decisions and state, then recommends the next skill (declare the goal / seed / evolve / adjudicate / prune / answer).
 
 ## 4. Adversarial Verification (applies to any research loop running in this scope)
 
 - Every claim carries explicit confidence: high (multiple independent sources agree) / medium (single good source) / low (speculation, unverified).
-- Mutations and new assertions pass only if **≥2 of 3 refuters** (coherence / evidence / reproducibility lenses) fail to refute them. When uncertain, refute.
-- Valid objections are never discarded — absorb them into the node's `## Objections & Limits`, kept compressed to the *current* set (≤2 lines each; resolved objections live on in the session report and git — EVOLUTION.md §2).
+- **Verification depth follows decision role (EVOLUTION.md §5.1)** — spend the full pass only where a decision rests on the node:
+  - **load-bearing for an open decision** (flipping it changes which way the decision goes) → all three lenses (coherence / evidence / reproducibility), pass only if **≥2 of 3** fail to refute it.
+  - **serves an open decision but is not load-bearing** → **one** lens, chosen by `evidence_class`: `literature`→evidence, `field`→reproducibility, `design`→coherence. Earns currency and a refreshed `last_challenged`, but no generation, and cannot pass the `hardened` gate.
+  - **bears on no open decision** → not verified at all; it is a prune candidate (§3).
+- When uncertain, refute. Refuters judge in isolation and never see the mutation narrative — or which depth they are running at.
+- Valid objections are never discarded — absorb them into the node's `## Objections & Limits`, kept compressed to the *current* set (≤2 lines each; resolved objections live on in the session report and git — EVOLUTION.md §2). A node is re-judged **at most once per session** after absorbing; residue becomes an open question rather than another round.
 
 ## 5. Seed Source Candidates (input queue for reharm:root)
 

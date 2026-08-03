@@ -33,24 +33,49 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 - LEDGER:          «<project>/.reharm-loop/<scope-name>.jsonl»   ← OUTSIDE the scope (EVOLUTION.md §8)
 
 ## DECISION POLICY — how the main session stands in for the user
-- pushing recommendation  : take the cascade first-match as-is (already deterministic) — EXCEPT the
-                            deep-research escalation row (§13, manual-only): NEVER auto-escalate; skip
-                            that row and take pushing's next secondary candidate (or current).
-- reharmonization Phase B : auto-pick frontier-top + past-cadence nodes (no user-named topic),
-                            CAPPED at MAX_TARGETS per iteration — excess candidates wait for the next
-                            tick (an unattended session must stay small enough to audit); record the
-                            picks and rationale in E####.md "Targets & Why".
-- reharmonization Phase D : unchanged — 3 refuters as ISOLATED sub-agents (refuter.md; no mutation
-                            narrative passed), ≥2/3 must survive; refute when unsure.
+- ACTIVE DECISION         : read SCOPE/CLAUDE.md `### Goal & Open Decisions` (EVOLUTION.md §1) EVERY
+                            tick. Zero open decisions → STOP("no-decisions"): the loop must never
+                            author or settle a decision, and with none open it has nothing to steer by.
+                            One open → that is the active decision. Several → pick the one CLOSEST TO
+                            ANSWERABLE (most serving nodes at hardened-or-above; tie → lowest ID), so
+                            value lands soonest. Record the ID in the ledger and in E####.md.
+- pushing recommendation  : take the cascade first-match as-is (already deterministic) — EXCEPT two rows:
+                            · "declare the goal" (row 2) → STOP("no-decisions"); writing that block is
+                              the owner's call, not the loop's.
+                            · deep-research escalation (§13, manual-only) → NEVER auto-escalate; skip
+                              the row and take pushing's next secondary candidate (or current).
+- reharmonization Phase B : auto-pick frontier-top + past-cadence nodes WITHIN the active decision
+                            (`boundary-score.py --serves <ID>`; no user-named topic), CAPPED at
+                            MAX_TARGETS per iteration — excess candidates wait for the next tick (an
+                            unattended session must stay small enough to audit); record the picks and
+                            rationale in E####.md "Decision & Targets".
+- prune sweep (Phase C)   : auto-apply ONLY the unambiguous case — a node whose every served decision
+                            is `settled`, or whose branch a design decision absorbed this tick
+                            collapsed. NEVER auto-prune an `unassigned` node (lint
+                            `unassigned_claims`): a missing `serves:` is usually a binding gap, not a
+                            dead branch, and pruning it would hide work rather than shed it. File
+                            those in SCOPE/wiki/questions/ as one "needs binding" entry for the human.
+                            Log both counts in the ledger (`pruned`, `needs_binding`).
+- reharmonization Phase D : depth per EVOLUTION.md §5.1 — load-bearing for the active decision → all
+                            3 lenses (≥2/3 must survive); serves it but not load-bearing → 1 lens by
+                            evidence_class; bears on no open decision → do NOT judge, report as a
+                            prune candidate. Refuters stay ISOLATED sub-agents (refuter.md; no mutation
+                            narrative, and never told their depth); refute when unsure. Re-judge after
+                            absorbing a partial collapse AT MOST ONCE per node per tick (§5.3) — then
+                            file the residue as a question and move on.
 - critique adjudication   : adjudicate by evidence — clear support → adopt/reject; a contradiction
                             pair → resolve by evidence weight (absorb into ## Objections & Limits);
                             both sides weak → needs-research (sharpen into questions/, do NOT assert);
-                            total collapse → deprecate. Touch confidence/status only; never raise generation.
+                            total collapse → deprecate. Touch confidence/status only; never raise
+                            generation, and never flip a decision's row to `settled` — that is the
+                            owner's ruling. When a verdict looks like it settles one, say so in the
+                            ledger `summary` and leave the row alone.
 - experiment-design target: auto-pick a `status: hardened` node with an empty ## Field Evidence;
                             judge testability from the body (non-empirical → redirect to reharmonization).
 - modal-interchange       : auto-find one genuine crossover with SIBLING_SCOPE (seed only);
                             if none, file the reason in SCOPE/wiki/questions/ and treat as a no-op.
-- ensemble                : auto-pick the question — the scope's central question (overview.md /
+- ensemble                : auto-pick what it answers — the ACTIVE DECISION's ID first (that is what
+                            someone is waiting on), else the scope's central question (overview.md /
                             CLAUDE.md purpose), else the questions/ node most linked from hardened
                             claims. Safe to automate: add-only into wiki/deliverables/, update-in-
                             place, node states untouched (EVOLUTION.md §14).
@@ -63,7 +88,10 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
             wait) → reclaim it. Otherwise create `<LEDGER>.lock` and write the current ISO ts into it.
 1. LOAD   — read the LEDGER tail: N = number of completed iterations, plus the last decision/result.
             If MAX_ITERS ≠ inf AND N ≥ MAX_ITERS → STOP("count-reached").
-2. JUDGE  — FIRST check for an in-flight experiment: is there a `status: running` experiment node?
+2. JUDGE  — FIRST resolve the ACTIVE DECISION per DECISION POLICY (read SCOPE/CLAUDE.md's
+            `### Goal & Open Decisions`). No open decision → STOP("no-decisions") before spending
+            anything: every downstream choice is measured against it.
+            THEN check for an in-flight experiment: is there a `status: running` experiment node?
             • result has landed in SCOPE/.raw/experiments-results/ → R = reharmonization (its Phase C
               imports the result against the pre-registered criterion, flipping the node imported/abandoned).
             • no result yet, and (now − the launch ts in the LEDGER) < EXP_TIMEOUT → still running; do NOT
@@ -127,7 +155,9 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 4. RECORD — append ONE JSONL line to the LEDGER (this is the loop's ONLY state; it lives outside the scope —
             the scope's own files are updated by the skills above, per EVOLUTION.md §8):
             {"n": N+1, "scope": "SCOPE", "R": "<R>", "cmd": "<command run>", "summary": "<one line>",
+             "decision": "<active decision ID, or null when none applied>",
              "targets": ["<node stems this iteration mutated/judged — [] for non-node actions>"],
+             "pruned": <count auto-pruned this iteration>, "needs_binding": <count filed for the human>,
              "eval_pass": <bool|null>, "stagnation": "<verdict>", "gate": <null|"exec-blocked">,
              "exp": <null|"launched"|"waiting"|"imported"|"abandoned">,
              "ts": "<ISO 8601 timestamp>", "stop": <null|"<reason>">}
@@ -153,7 +183,12 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 
 ## STOP reasons (always written to ledger `stop`)
 count-reached · nothing-pending · stagnation:reseed · stagnation:change-strategy ·
-action-error · overlap · bad-scope · exec-blocked-needs-human
+action-error · overlap · bad-scope · exec-blocked-needs-human · no-decisions
+
+`no-decisions` means the scope declares no OPEN decision (none written, or all settled). That is a
+clean, healthy stop, not a failure: either the work is done, or the owner needs to write the next
+decision into SCOPE/CLAUDE.md. The loop deliberately cannot do it — a loop that invents its own goals
+optimizes whatever it happens to find.
 
 Any stop reached AFTER this iteration took the lock (step 0) still completes RECORD (the ledger line, with
 `stop` set) and UNLOCK before ending — a stop reason only changes step 6 (dynamic: omit the wakeup;

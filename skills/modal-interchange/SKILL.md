@@ -17,6 +17,7 @@ Borrow chords (knowledge) from a parallel key (another scope). **Read `${CLAUDE_
 3. **Contrast**: shortlist pairs where ① the same problem meets different solutions ② one side's `## Objections & Limits` is answered by the other side's mechanism ③ claims directly contradict across scopes.
 4. **Synthesize** adopted pairs into **scope A's `wiki/mashups/`**:
    - Frontmatter per EVOLUTION.md §2 with mandatory new-node defaults (`type: mashup`, `status: seed`). Set `evidence_class` by the mashup's **own** verification path, not the donor's class — keep the `literature` default when the synthesis can harden on cited documents; set `field` when only a measurement in scope A can confirm its conclusion (a mashup is a new assertion with its own §3 gate currency).
+   - **Set `serves:` to the decision(s) of scope A it bears on** (§1) — a mashup is a new node and pays the same costs as any other, so it earns its place the same way. If the crossover is genuine but bears on none of scope A's open decisions, **do not mint it**: file it in `wiki/questions/` as an observation instead (see the constraint below). A mashup born unassigned is a prune candidate the day it is created.
    - **Mint a `borrowed:` snapshot** (§2) — one entry per donor node: `node` (wikilink), `scope` (absolute donor-scope path), `status_at_mint`, `gen_at_mint`, `date`. This is the drift baseline reharmonization Phase A checks; without it a later donor demotion silently rots the mashup.
    - Scope B's knowledge is **cited by wikilink only — never copied or moved** (single source of truth). Scope B's nodes are never edited.
    - `sources:` lists wikilinks to both originating nodes.
@@ -26,4 +27,5 @@ Borrow chords (knowledge) from a parallel key (another scope). **Read `${CLAUDE_
 
 - New mashups are born `seed` — verification and promotion happen in the next `reharm:reharmonization` session.
 - If no genuine crossover exists, do not force one: file "no interchange found + why" in scope A's `wiki/questions/` and stop.
+- **A crossover that serves no open decision of scope A is not a mashup** — it is an interesting observation, and it goes to `wiki/questions/` with both donor links. Cross-domain insight is exactly the kind of finding that feels valuable enough to mint and then sits unbound for the life of the scope, drawing cadence and refuters no decision was waiting on.
 - Meaningful only once ≥2 scopes exist.
