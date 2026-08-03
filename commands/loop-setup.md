@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz autonomous-loop wizard — detects the scope, interviews for CONFIG, validates the experiment gate, writes .claude/loop.md, then starts the native /loop in the same invocation."
+description: "re:Harmoniz autonomous-loop wizard — detects the scope, checks it declares an open decision, interviews for CONFIG, validates the experiment gate, writes .claude/loop.md, then starts the native /loop in the same invocation."
 ---
 
 # reharm:loop-setup — Autonomous-Loop Wizard (setup → start, one command)

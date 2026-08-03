@@ -4,6 +4,120 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] — 2026-08-03
+
+**The protocol optimized the wrong thing.** It graded propositions on truth and counted generations
+as progress, so a scope could harden five nodes a session while every decision it existed to settle
+stood exactly still — and every other metric read healthy while it happened: lint clean, survival
+rate high, generations climbing. Three mechanics produced that. The node *unit* was "a single
+verifiable assertion", which rewards splitting a mixed claim into finer propositions — and a
+proposition fine enough to be cleanly true is usually too fine to act on. The *cost* was fixed at
+three refuters per mutation with an uncapped absorb-revise-re-judge loop, spent identically on a
+claim a decision hinged on and a claim nothing rested on. And the *objective function* (§7) could
+only count generations, sources, and survival rate; it had no way to notice that nothing had moved.
+
+The fix generalizes three things the plugin already did right in one place each: the §12 decision
+gate ("what differs outside the wiki?"), the §1 field-origin rule ("claims only for decision-changing
+findings"), and §14's load-bearing test ("negating it changes the verdict"). All three now apply at
+every step that spends anything. Schema changes are additive — `serves:` is optional and `pruned` is
+new — so every pre-1.0.0 node and scope stays valid with no migration, and the relevance rules simply
+stay inert until a scope declares its decisions.
+
+This is 1.0.0 rather than 0.16.0 because §3/§5/§7 change *meaning*: the same session, graded by the
+new evaluator, can come out differently.
+
+### Added
+
+- **`### Goal & Open Decisions`** (§1, §10 — scope `CLAUDE.md`, required): the goal in one line plus
+  one `| D1 | <decision> | open |` row per decision the scope exists to settle. A decision is
+  something you do outside the wiki; "the claim reaches `hardened`" is bookkeeping. An unrecognized
+  status reads as `open`, so a typo can never retire a decision and thereby let a node be pruned
+  against it. `wiki-lint.py` reports a missing block as `no_decisions_declared` — but only once
+  evolving nodes exist, so a fresh scope stays quiet.
+- **`serves:`** (§2, optional): the decision IDs a node bears on — the test being *would flipping
+  this change which way that decision goes?*, not *is this topically related?*. Drives target
+  selection, verification depth, pruning, and the §7 counters. Absent = unassigned, which is a prune
+  candidate, not an error (`unassigned_claims`, warning). `unknown_serves_target` catches IDs that
+  resolve to no declared decision.
+- **`status: pruned`** (§3): a terminal status for a node that bears on no open decision, kept
+  **distinct from `deprecated`** — a pruned node may be correct, well-sourced and high-generation; it
+  simply stopped mattering. Body stays verbatim plus a one-line reason, generation intact, inbound
+  links resolving, and it is **reversible** if the decision reopens. Same graph-exit exemptions as
+  `deprecated` (orphan check, node-body hygiene) and its own census bucket.
+- **Verification depth tiers** (§5.1): **full** — all three lenses, ≥2/3, for nodes load-bearing for
+  an open decision; **single** — one lens derived from `evidence_class` (`literature`→evidence,
+  `field`→reproducibility, `design`→coherence) for nodes that serve a decision without being
+  load-bearing; **none** — not judged at all for unbound nodes, which become prune candidates. A
+  single-lens pass earns currency and a refreshed `last_challenged` but **no generation**, and cannot
+  open the `hardened` gate — so a generation still means "survived the full three-lens pass" and the
+  cheap tier cannot inflate it. Refuters are never told their depth: a lens that knows its verdict is
+  decisive judges differently.
+- **Prune sweep** (§4 Phase C, every session, before Phase D spends anything): reports — never
+  auto-applies — nodes that are unassigned, whose served decisions are all `settled`, or whose branch
+  an absorbed design decision collapsed. `reharm:critique` owns the ruling and offers *bind to a
+  decision* alongside *prune*, since a missing binding is usually a gap rather than a dead branch.
+- **Decision counters** (§7, eval schema v3): `decisions_settled` and `branches_pruned` as the
+  primary progress signals, plus a **third `change-strategy` trigger** — three sessions in a row with
+  generation progress but zero decision movement. That is the exact failure this release exists to
+  catch, and it reads as healthy under every other check.
+- **`--serves <ID>`** on `boundary-score.py`, plus `serves` exposed per JSON row: Phase B asks for the
+  frontier *inside* one decision. Relevance is a **filter, not a weight** — scores are byte-identical
+  to the unfiltered run, so the existing formula tests still hold.
+- **`## Decision movement`** and **`## Pruned`** sections plus a `decision:` frontmatter key in the
+  §11.1 session report; a **Decisions** table and a `Serves` column in the §11.2 index template.
+- **`no-decisions`** STOP reason for the autonomous loop — a clean stop, not a failure. The loop
+  never writes or settles a decision: one that invents its own goals optimizes whatever it finds.
+
+### Changed
+
+- **Atomization is decision-gated** (§1, `reharm:root`, `per-source.md`): a source becomes claims only
+  where it bears on a declared decision; everything else stays on the `sources/` page, cited and
+  searchable and free. The per-source caps (15, or 3 for field-origin) are now **backstops, not
+  targets** — hitting one signals the gate was skipped. Subs receive the open-decision rows verbatim
+  and report `kept_on_source_page`, which is the evidence the gate ran. `root` asks for the decisions
+  when scaffolding a scope, and reports honestly when none are declared instead of falling back
+  silently.
+- **`reharm:pushing` cascade reordered** on one principle: *realizing value already earned, or
+  lowering the cost of every later session, outranks adding work.* The answerable decision and the
+  prune sweep now sit **above** momentum, and so do both stagnation verdicts. This fixes a real
+  starvation bug, not just a philosophical one: momentum was row 7 and fires in every living scope
+  (seed/developing nodes re-verify every session), so synthesis, both stagnation verdicts, and
+  modal-interchange were unreachable in the autonomous loop, which takes the cascade's first match —
+  the skill's own text described the starvation while leaving synthesis below it.
+- **Re-judging is capped at one round** per node per session (§5.3). A node still collapsing after it
+  keeps its generation, keeps the residual objection, and files the unresolved part as a question. A
+  claim mixing a true part with a false one could otherwise absorb-and-revise indefinitely, each
+  round costing a full re-spawn while the decision waited.
+- **Nodes bearing on no open decision leave the re-verification calendar** (§3). Without this, a scope
+  that atomized 60 assertions owes 60 re-verifications a session forever regardless of how few any
+  decision rests on.
+- **Node bodies may carry conditional recommendations** (§2). *"At ≤65B use 8-bit Adam"* is an
+  assertion — falsifiable, refutable, bound-able by field evidence — and it is the most useful thing
+  a claim can say. Only *plans* ("the next step is…") stay banned, for the original mechanical reason:
+  they have no truth value and never expire. The linter already targeted plan phrasing only; the prose
+  no longer reads as a ban on actionable content.
+- **`reharm:ensemble` runs when the decision is takeable**, not at a census threshold (§14). Its
+  identity (`question:`) may be a declared decision ID; it skips `pruned`/`deprecated` nodes; and it
+  never settles a decision itself — that is the owner's ruling via `critique`.
+- **Search is decision-aligned** (§6.1): a decision angle runs first and can end the search early;
+  the refutation / independent-source / counterexample angles are for full-depth targets, and a
+  single-depth target runs the decision angle only.
+- `reharm:modal-interchange` files a crossover that serves no open decision as a `questions/` entry
+  instead of minting a mashup; `reharm:experiment-design` starts from the declared decision and notes
+  the gate is now scope-wide; `reharm:loop-setup` refuses to start a loop on a scope with no open
+  decision, validating at the boundary rather than after N ticks.
+- The autonomous loop resolves an active decision every tick (closest-to-answerable, tie → lowest ID)
+  and **auto-prunes conservatively**: never an unassigned node, whose counts go to the ledger as
+  `needs_binding` for a human.
+- README (EN/KO), `docs/SKILLS.md` (EN/KO), both loop guides, all eight command descriptions, the
+  scope template, and both manifests reframed from "hardening what you know" to settling decisions.
+  The "two guarantees" section is now three: the added one is that `pruned` is not `deprecated`.
+
+### Fixed
+
+- `EVOLUTION.md` §3 listed the experiment lifecycle without `retired` (added in 0.15.0), and
+  `experiment-design` cited `§5.5` for the prospective reproducibility lens, which is `§5.6`.
+
 ## [0.15.0] — 2026-07-27
 
 **A pre-registration can outlive the decision it served.** A live scope retired a field experiment

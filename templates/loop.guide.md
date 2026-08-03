@@ -15,7 +15,7 @@ re-feeds the file and advances the evolution loop **one step at a time**.
 
 Each step is three moves:
 
-1. **JUDGE** — `reharm:pushing` inspects the scope (frontier scores, lint health,
+1. **JUDGE** — the active decision is resolved first, then `reharm:pushing` inspects the scope (frontier scores per decision, prune queue, lint health,
    maturity census, last stagnation verdict) **read-only** and names the next action.
 2. **ACT** — exactly one recommended skill runs: `root` / `reharmonization` / `critique`
    / `modal-interchange` / `experiment-design` / `ensemble`. The main session stands in
@@ -52,7 +52,7 @@ Run exactly once per firing, in this order:
 |---|------|--------------|
 | 00 | **LOCK** | If `<ledger>.lock` exists, another iteration is mid-flight → `STOP("overlap")`. Otherwise create it. |
 | 01 | **LOAD** | Read the ledger tail: `N` = completed iterations. If `MAX_ITERS ≠ inf` and `N ≥ MAX_ITERS` → `STOP("count-reached")`. |
-| 02 | **JUDGE** | Run `/reharm:pushing`. Take the next action `R`, its evidence, and the latest stagnation verdict. `R = current` → `STOP("nothing-pending")`; verdict ∈ `STOP_ON` → `STOP("stagnation:…")`. |
+| 02 | **JUDGE** | Resolve the **active decision** from the scope `CLAUDE.md` `### Goal & Open Decisions` block; none open → `STOP("no-decisions")`. Then run `/reharm:pushing`. Take the next action `R`, its evidence, and the latest stagnation verdict. `R = current` → `STOP("nothing-pending")`; verdict ∈ `STOP_ON` → `STOP("stagnation:…")`. `R` = "declare the goal" → `STOP("no-decisions")` (writing that block is the owner's call). |
 | 03 | **ACT** | Perform **exactly one** action for `R`, auto-deciding every choice per the DECISION POLICY. |
 | 04 | **RECORD** | Append one JSONL line to the ledger. This is the loop's **only** state. |
 | 05 | **UNLOCK** | Remove `<ledger>.lock`. |
@@ -151,6 +151,8 @@ scheduled tasks themselves and the loop dies silently — restart it with `/loop
 
 Autonomy without an undo button is reckless; the contract bakes in six:
 
+- **It cannot invent its own goal.** Every tick reads the scope's declared decisions and steers by one of them; with none open it stops cleanly (`STOP("no-decisions")`) instead of picking a target. The loop may settle nothing and declare nothing — a loop that writes its own goals optimizes whatever it happens to find, and that is precisely the failure an unattended run cannot notice.
+- **Pruning is conservative when unattended.** The loop auto-prunes only the unambiguous case (every decision a node serves is `settled`, or a design decision collapsed its branch). It never auto-prunes an *unassigned* node — a missing `serves:` is usually a binding gap, and cutting it would hide work rather than shed it. Those are filed in `questions/` for a human, and both counts land in the ledger (`pruned`, `needs_binding`).
 - **Per-scope lock** — `<ledger>.lock` (holding the iteration's start ts) allows only one loop per scope; a concurrent firing exits with `STOP("overlap")`. Every stop unlocks before ending, and a lock older than ~1h is treated as a dead iteration and reclaimed — so one crashed tick can't deadlock the scope.
 - **External ledger** — the ledger lives **outside** the scope at `<project>/.reharm-loop/`. `EVOLUTION.md` §8 forbids in-scope state files, and keeping it out also means `wiki-lint` never flags it as an orphan.
 - **Reversible deprecate** — discarding a node is a **status flip**, never a delete; the loop never raises a node's generation.

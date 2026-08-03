@@ -4,71 +4,97 @@
 
 [![latest version](https://img.shields.io/github/v/release/hwang-yeonsu/re-harmoniz?label=version&sort=semver&color=blue)](https://github.com/hwang-yeonsu/re-harmoniz/releases)
 
-> **An evolution loop for research wikis** — a Claude Code plugin (`reharm`).
+> **A research loop that settles decisions** — a Claude Code plugin (`reharm`).
 
-**re:Harmoniz = re·search + re·harmoniz·ation.** Hold your research *question* fixed and re-derive what sits beneath it — the **claims, and the evidence they rest on** — generation after generation. (The name borrows *reharmonization* from music: keep the melody, rework the chords under it.)
+**re:Harmoniz = re·search + re·harmoniz·ation.** Hold the *decisions you need to make* fixed and re-derive what sits beneath them — the **claims, and the evidence they rest on** — generation after generation. (The name borrows *reharmonization* from music: keep the melody, rework the chords under it.)
 
-Knowledge lives as atomic **claim** nodes that harden under two pressures: **mutation** (revision) and **natural selection** (adversarial verification). A 1st-generation claim is a bare assertion; a 10th-generation claim has absorbed its refutations, cites independent sources, and carries real-world field evidence. Only nodes that *survive* refutation gain a generation — so the wiki's average reliability rises monotonically.
+You declare, up front, the decisions a scope exists to settle. Claims are the **branches** under those decisions. Research grows the branches; verification **prunes** them. A branch nothing is waiting on gets cut, however true it is; a branch a decision rests on gets three adversarial refuters and has to survive. Progress is measured in decisions settled — not in how much the wiki knows.
 
 It's all plain Markdown you own. The entire protocol is one file: [`EVOLUTION.md`](EVOLUTION.md).
 
 ## Why not just a wiki?
 
-Most knowledge tools — Zettelkasten vaults, Notion, "LLM wiki" note stores — **accumulate**: every note you add counts equally, and the pile only grows. re:Harmoniz is built for **research**, where most assertions are wrong until proven otherwise — so it does the opposite. It **grades and hardens** what you know:
+Most knowledge tools — Zettelkasten vaults, Notion, "LLM wiki" note stores — **accumulate**: every note you add counts equally, and the pile only grows. re:Harmoniz is built for **engineering research**, where the point is to act, so it does two things a note store cannot:
 
-- **Reliability is earned, not assumed.** Every claim is pressure-tested by three adversarial refuters; only survivors gain a generation. Average reliability rises monotonically instead of drifting with the pile.
-- **Maturity is evidence-gated, not age-based.** `seed → developing → hardened → evergreen` unlocks on evidence in the claim's own currency — independent sources for literature claims, replication for facts you measured yourself, and real-world field evidence for `evergreen` — not on how long a note has sat untouched.
+- **Every node has to earn its keep.** A source becomes claims only where it bears on a declared decision; the rest stays on the source page, recorded and citable but free. Nodes that stop mattering are `pruned` — a status distinct from `deprecated`, because "nothing depends on this" is not the same finding as "this was wrong."
+- **Verification depth follows what rests on the node.** A claim a decision hinges on gets all three refuters and must survive ≥2/3. A supporting detail gets one lens. A claim no open decision rests on gets none — it gets pruned instead. Rigor is aimed, not sprayed.
+- **Progress is decisions settled, not generations gained.** The session evaluator counts `decisions_settled` and `branches_pruned` first, and flags three sessions of rising generations with no decision movement as `change-strategy` — the failure mode that reads as healthy under every other metric.
 - **Disagreement stays on the record.** Contradictions live on *both* nodes until you adjudicate; collapsed claims are deprecated, never deleted. The wiki defends its own conclusions.
 
-That's the difference: a **research-claim evolution engine specialized for hardening what you know**, not a note store.
+That's the difference: a **decision-directed research engine**, not a note store — and not a truth engine either. Splitting a mixed assertion into ever-finer propositions raises a maturity number without moving a decision, and a proposition fine enough to be cleanly true is usually too fine to act on.
 
 ## The loop
 
 ```
-  seed a claim
+  declare the decisions      D1: replace 32-bit Adam with 8-bit?   (open)
       │
       ▼
-  mutate            ── revise, decompose new sources, hunt counter-evidence
+  seed a branch          ── a source becomes claims only where a decision rests on it
       │
       ▼
-  natural selection ── 3 refuters, one lens each (coherence · evidence · reproducibility)
+  mutate                 ── revise, decompose new sources, hunt counter-evidence
       │
-      ├─ survives ≥2/3 ─▶ generation +1, promote: seed → developing → hardened → evergreen
-      └─ collapses     ─▶ deprecated (kept on record — never deleted)
+      ▼
+  prune                  ── cut branches no open decision depends on   ─▶ pruned
+      │
+      ▼
+  natural selection      ── depth follows role: 3 refuters if load-bearing, 1 lens if not
+      │
+      ├─ survives ─▶ generation +1, promote: seed → developing → hardened → evergreen
+      └─ collapses ─▶ deprecated (kept on record — never deleted)
+      │
+      ▼
+  answer the decision    ── one citable page, as soon as it can be acted on
 ```
 
-Run it whenever new material or new doubt piles up. Nothing is auto-decided: you pick the targets, you adjudicate the ambiguous ones.
+Run it whenever new material or new doubt piles up. Nothing is auto-decided: you pick the targets, you adjudicate the ambiguous ones, and you decide what gets pruned.
 
 ## Skills
 
 | Skill | What it does |
 |---|---|
-| `reharm:root` | Entry point. Scaffolds a scope, then seeds it: throw in a repo URL, article, pseudocode, an existing note, or a rough idea → it lands in `.raw/` and becomes atomic `claims/` (all born generation 1). Several sources fan out to isolated sub-agents — one per source — so no source's framing leaks into another's claims. |
-| `reharm:reharmonization` | One evolution session — the namesake skill: Retrospect → Target (you approve) → Mutate → Natural Selection (3 refuters, ≥2/3 must survive) → Record. |
+| `reharm:root` | Entry point. Scaffolds a scope — asking what decisions it exists to settle — then seeds it: throw in a repo URL, article, pseudocode, an existing note, or a rough idea → it lands in `.raw/` and becomes `claims/` **only where it bears on one of those decisions** (all born generation 1); the rest stays on the source page. Several sources fan out to isolated sub-agents — one per source — so no source's framing leaks into another's claims. |
+| `reharm:reharmonization` | One evolution session, serving one open decision — the namesake skill: Retrospect → Target (pick the decision, then the node; you approve) → Mutate + prune sweep → Natural Selection (3 refuters if the node is load-bearing, 1 lens if not, none if nothing rests on it) → Record. |
 | `reharm:modal-interchange` | Cross-scope mashup — borrow knowledge from a parallel scope (like borrowing chords from a parallel mode) and mint cross-domain insights, citation-only. Each mashup carries a `borrowed:` snapshot of the donor's state, so later donor drift surfaces as an objection instead of silent rot. |
-| `reharm:critique` | Adjudication — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) and resolves it through a short interview: themed bundles get one multi-select triage (promote / hold / archive), and open questions untouched for 4+ sessions are proposed — never auto-archived — as one aging batch. |
-| `reharm:pushing` | Orientation (read-only). Reads the scope's current wiki + evolution state and recommends the next move — seed, evolve, adjudicate, or escalate stuck evidence to deep research — with the evidence behind it. Changes nothing; you decide. |
+| `reharm:critique` | Adjudication **and pruning** — gathers the ambiguous backlog (open questions, stalled nodes, contradictions, lint warnings) *and* the prune queue (nodes bound to no open decision, or only to settled ones) and resolves both through a short interview: themed bundles get one multi-select triage, and prunes are proposed — never automatic — with *bind to a decision* offered alongside, since a missing binding is often a gap rather than a dead branch. |
+| `reharm:pushing` | Orientation (read-only). Reads the scope's declared decisions plus its wiki state and recommends the next move — declare the goal, seed, evolve, adjudicate, prune, answer, or escalate stuck evidence to deep research — with the evidence behind it. Ordered so that realizing value already earned, or lowering the cost of every later session, outranks adding work. Changes nothing; you decide. |
 | `reharm:experiment-design` | Field-experiment designer. For a claim stuck at the `hardened → evergreen` gate **whose result would change an action**, it **pre-registers** the experiment that would confirm or refute it — hypothesis, a `## Decision at stake` pair naming what differs *outside the wiki* under each outcome (the decision gate; if nothing does, it redirects instead), a CONFIRM/REFUTE criterion fixed before the run, the conditions to record — then hands a plain-language goal to a runner — an external one you configure (e.g. `autoresearch`), or by default the plugin's **runner-worker**, an isolated sub-agent recorded on the node and launched later by you or the autonomous loop. Designs and records only; never runs code. |
-| `reharm:ensemble` | Answer synthesis — the loop's **exit**. Assembles what survived into one `deliverables/` page that answers the scope's central question: every load-bearing sentence cites its node with a (status · confidence · generation) snapshot, the weakest load-bearing claim sets the confidence floor, and open caveats stay on the record. Update-in-place; node states never change. |
+| `reharm:ensemble` | Answer synthesis — the loop's **exit**. Assembles what survived into one `deliverables/` page that answers a declared decision (or the scope's central question), opening with a three-line bottom line a practitioner can act on: every load-bearing sentence cites its node with a (status · confidence · generation) snapshot, the weakest load-bearing claim sets the confidence floor, and open caveats stay on the record. Run it **as soon as the decision can be taken**, not once the census looks impressive. Update-in-place; node states never change. |
 
 > **Not sure which to run?** [`docs/SKILLS.md`](docs/SKILLS.md) is a friendly, situation-first guide — *"I want to X → run Y"* — that says what each skill does and won't touch. (Or just run `reharm:pushing` and it names the next move for you.)
 
 ## Usage scenarios
 
-**Tracking a fast-moving technique.** You're evaluating whether a new ML optimization actually holds up at scale. `reharm:root` a couple of papers and the reference repo; each finding becomes a claim. Weeks later a new result contradicts one — run `reharm:reharmonization`: the refuters test both, the loser is deprecated *with its reasons on record*, the survivor gains a generation and now cites two independent sources.
+**Deciding whether to adopt a technique.** You need to answer *"do we switch to this optimizer?"* — declare it as `D1`, then `reharm:root` a couple of papers and the reference repo. Only the findings that would flip D1 become claims; the rest stays on the source pages. Weeks later a new result contradicts one — run `reharm:reharmonization`: the refuters test both, the loser is deprecated *with its reasons on record*, the survivor gains a generation and now cites two independent sources. When D1 can be answered, `reharm:ensemble` writes the page you act on.
 
-**A literature review that defends itself.** Atomize every paper into claims with citations. Contradictions across papers stay explicit on *both* nodes until you settle them in `reharm:critique`. The `index.md` maturity census shows at a glance what's solid (hardened/evergreen) versus still speculative (seed).
+**A literature review that defends itself.** Declare the decisions the review is meant to inform, then atomize papers against them. Contradictions across papers stay explicit on *both* nodes until you settle them in `reharm:critique`. The `index.md` Decisions table shows how far each decision has come; the maturity census shows what's solid (hardened/evergreen) versus still speculative (seed).
 
 **Competitive / market analysis.** Seed vendor docs, benchmarks, and field reports. Adversarial verification strips marketing claims that have no independent backing; only assertions that survive the evidence lens harden. Real usage that later confirms or breaks a claim gets appended under `## Field Evidence`.
 
 **Connecting two research tracks.** Once you have two scopes — say one on *training* and one on *serving* — `reharm:modal-interchange` finds where one side's open problem is answered by the other side's mechanism, and mints a cross-domain insight, cited back to both originals (single source of truth).
 
-**Coming back to a scope cold.** Weeks later you reopen the scope and don't remember where it stands. `reharm:pushing` reads the maturity census, the frontier scores, the open contradictions, and the last session's stagnation verdict, then names the next move — *seed new material* (`root`), *evolve a frontier node* (`reharmonization`), or *adjudicate the backlog* (`critique`) — with the evidence behind each. It's read-only: it points, you decide and run the skill.
+**Coming back to a scope cold.** Weeks later you reopen the scope and don't remember where it stands. `reharm:pushing` reads the decision block, the maturity census, the frontier scores per decision, the prune queue, the open contradictions, and the last session's stagnation verdict, then names the next move — *answer a decision that's now answerable* (`ensemble`), *prune dead branches* (`critique`), *evolve a frontier node* (`reharmonization`), *seed new material* (`root`) — with the evidence behind each. It's read-only: it points, you decide and run the skill.
+
+**Catching a scope that's busy but not moving.** Six sessions in, generations are climbing, lint is clean, survival rate is high — and not one decision has moved. The session evaluator counts that pattern directly and returns `change-strategy`, and `pushing` says plainly that the wiki is hardening things nobody is waiting on. Every other metric in the scope reads healthy, which is exactly why this one is counted.
 
 <details>
 <summary><b>A full walkthrough — one topic across all seven skills</b></summary>
 
-The scope is `Research_optimizers` (training-time optimization for your ML pipeline); a parallel scope, `Research_serving`, already exists for inference. **The question:** *can 8-bit Adam (bitsandbytes) replace 32-bit Adam without hurting final model quality?*
+The scope is `Research_optimizers` (training-time optimization for your ML pipeline); a parallel scope, `Research_serving`, already exists for inference.
+
+**⓪ Declare the decision** — before any research, the scope `CLAUDE.md` says what it is for:
+
+```markdown
+### Goal & Open Decisions
+
+**Goal:** cut the training pipeline's memory budget without losing model quality
+
+| ID | Decision to settle | Status |
+|---|---|---|
+| D1 | Do we switch the training config to 8-bit Adam? | open |
+```
+
+Note what D1 is not: it is not *"is 8-bit Adam as good as 32-bit?"* That is a question about the world. D1 is a thing you will do or not do, and every later step is measured against it.
 
 **① Seed it — `reharm:root`**
 
@@ -78,11 +104,11 @@ cd 01_Projects/Project_A/Research_optimizers
 /reharm:root "paper: 8-bit Optimizers via Block-wise Quantization (Dettmers et al., 2022)"
 ```
 
-The repo dump and paper land in `.raw/`, each gets a `sources/` summary, and the assertion becomes a claim — `claims/8bit-adam-matches-32bit-quality.md`, born `seed · generation 1 · confidence low`. Each `reharm:root` run atomizes its source inside an **isolated sub-agent** — the main session sees only the distilled draft claims it returns, never the raw body — so seeding several sources never lets one's framing bleed into another's.
+The repo dump and paper land in `.raw/` and each gets a `sources/` summary. The paper makes perhaps twenty assertions; **two of them bear on D1**, so two become claims — `claims/8bit-adam-matches-32bit-quality.md` and `claims/stable-embedding-required-for-8bit.md`, born `seed · generation 1 · confidence low · serves: ["D1"]`. The other eighteen — block-wise quantization internals, benchmark tables, related-work framing — stay on the source page, cited whenever they matter and costing nothing. Each run atomizes inside an **isolated sub-agent**, so seeding several sources never lets one's framing bleed into another's.
 
 **② First evolution — `reharm:reharmonization` (writes `E0001.md`)**
 
-Phase B surfaces the fresh node (high boundary score); you approve it. Phase C hunts counter-evidence on the web. Phase D runs three refuters — *coherence · evidence · reproducibility*; the reproducibility lens lands a counterexample (*training diverges without a stable-embedding layer*), but **2/3 survive**.
+Phase B picks D1 (the only open decision), then asks for the frontier *inside* it — `boundary-score.py --serves D1` — and surfaces the fresh node; you approve it. Phase C hunts counter-evidence on the web, decision angle first. Phase D judges at **full depth**, because flipping this claim flips D1: three refuters — *coherence · evidence · reproducibility*; the reproducibility lens lands a counterexample (*training diverges without a stable-embedding layer*), but **2/3 survive**.
 
 → `generation → 2`, `seed → developing`, `confidence medium`; the counterexample is absorbed into the claim's `## Objections & Limits`; `E0001.md` logs the three verdicts; `index.md` + `hot.md` refresh. *Not `hardened` yet — that gate needs a second **independent** source.*
 
@@ -106,11 +132,15 @@ Cheap recon (`hot.md` → `index.md`) of both scopes finds a crossover: serving'
 
 Before the run you **pre-register** the experiment with `reharm:experiment-design` — it first makes you name the decision at stake (CONFIRM → keep 8-bit Adam in the training config; REFUTE → revert to 32-bit and re-budget the memory), then fixes the CONFIRM/REFUTE criterion in advance (CONFIRM if the eval-loss gap stays < tolerance at ≤65B), so the result can't be rationalized after the fact, and hands the goal to an external runner. You finally run 8-bit Adam in your actual pipeline; at your scale (≤65B) it matches 32-bit within noise. The experiment report lands in the scope's `.raw/experiments-results/` (the field-origin convention) and gets a `sources/` summary via `reharm:root`. The next `reharm:reharmonization`'s Phase C imports its conclusion — **with the conditions it held under (≤65B)** — into the claim's `## Field Evidence`. Because those conditions match the claim's scope (narrowed to ≤65B in ④) and no open counterexample remains, that single field-evidence entry opens the last gate: `hardened → evergreen`. (Had the result held only under narrower conditions, you'd have scoped the claim down further or held evergreen back.)
 
-**⑦ Synthesize the answer — `reharm:ensemble`**
+**⑦ Answer the decision — `reharm:ensemble`**
 
-With a hardened core in place, the original question — *can 8-bit Adam replace 32-bit without hurting quality?* — finally gets one page that answers it: `deliverables/8bit-adam-answer.md`. Every load-bearing sentence cites its node with a snapshot (`[[8bit-adam-matches-32bit-quality]] evergreen · high · g5`), the **confidence floor** in the header is set by the weakest load-bearing claim, and the open >65B question from ④ stays on the record under `## Open caveats`. Re-running ensemble after later sessions re-derives the same file in place — the answer tracks the wiki, never the other way round, and no node's state changes.
+D1 is now answerable, so it gets one page: `deliverables/8bit-adam-answer.md`, its `question:` set to `D1`. Every load-bearing sentence cites its node with a snapshot (`[[8bit-adam-matches-32bit-quality]] evergreen · high · g5`), the **confidence floor** in the header is set by the weakest load-bearing claim, and the open >65B question from ④ stays on the record under `## Open caveats`. Re-running ensemble after later sessions re-derives the same file in place — the answer tracks the wiki, never the other way round, and no node's state changes.
 
-**What you read between sessions:** `hot.md` (what just changed), `index.md` (the maturity census — how many nodes sit at each status), and `meta/evolution/E####.md` (why each change happened) — or run `reharm:pushing` to read all three for you and name the next move (read-only).
+**⑧ Settle it, then prune what carried it — `reharm:critique`**
+
+You act on the answer and flip D1 to `settled`. The next session's prune sweep then lists the nodes that served only D1 — the benchmark bound, the memory-ratio detail — as prune candidates. You keep the two that also bear on a still-open decision and prune the rest: `status: pruned`, bodies verbatim, generations intact, inbound links still resolving. They stop drawing refuters and re-verification the day they stop mattering, and if D1 ever reopens they flip straight back.
+
+**What you read between sessions:** `index.md` (the **Decisions** table first — how far each decision has come — then the maturity census), `hot.md` (what just changed), and `meta/evolution/E####.md` (why each change happened, with a `## Decision movement` line) — or run `reharm:pushing` to read them for you and name the next move (read-only).
 
 </details>
 
@@ -146,7 +176,7 @@ Research_X/
 │   ├── experiments-results/ # field-origin — the scope's own experiment/real-world results
 │   └── deep-research/       # reports returning from a deep-research escalation (§13)
 ├── wiki/
-│   ├── claims/      # ★ atomic assertions — the unit of evolution
+│   ├── claims/      # ★ the assertions your decisions rest on — the unit of evolution
 │   ├── mashups/     # ★ synthesized cross-insights
 │   ├── sources/     # one summary page per source (origin: primary|secondary + ancestry)
 │   ├── questions/   # open questions — lifecycle: open → answered | escalated | archived
@@ -154,10 +184,12 @@ Research_X/
 │   ├── deliverables/ # answer syntheses — non-evolving snapshots (reharm:ensemble)
 │   ├── meta/evolution/  # session reports E0001.md…
 │   └── index.md · hot.md · log.md · overview.md
-└── CLAUDE.md        # scope config (templates/SCOPE_CLAUDE.md)
+└── CLAUDE.md        # scope config — incl. the Goal & Open Decisions block (templates/SCOPE_CLAUDE.md)
 ```
 
-`sources/` = what a document says (testimony on record). `claims/` = what you currently believe is true (the contested issue). Only claims and mashups evolve.
+`sources/` = what a document says (testimony on record). `claims/` = the branches your decisions rest on. Only claims and mashups evolve — and only while a decision still needs them.
+
+The `CLAUDE.md` decision block is the load-bearing part: it is what makes seeding selective, targeting decision-scoped, verification tiered, and pruning possible. A scope without it still works exactly as before — every relevance rule simply stays inert, and the linter tells you so.
 
 ## Fits the structure you already have
 
@@ -185,13 +217,14 @@ That's only an example — use whatever structure you already have. (Since a sco
 
 ## Autonomous mode (opt-in)
 
-Every skill above is **manual by design** — you pick the targets, you adjudicate (`EVOLUTION.md` "nothing is auto-decided"). When you want the loop to run *unattended*, the plugin ships a template that deliberately trades that away: [`templates/loop.md`](templates/loop.md). Copy it to your research project's `.claude/loop.md`, fill in the `CONFIG` block, and the native `/loop` command re-runs **one iteration per firing** — `reharm:pushing` picks the next move, then the recommended skill executes, with the main session standing in for your approvals.
+Every skill above is **manual by design** — you pick the targets, you adjudicate (`EVOLUTION.md` "nothing is auto-decided"). When you want the loop to run *unattended*, the plugin ships a template that deliberately trades that away: [`templates/loop.md`](templates/loop.md). One thing it will **not** trade away: the loop never writes or settles a decision. With no open decision it stops cleanly (`no-decisions`) rather than picking its own target — a loop that invents its own goals optimizes whatever it happens to find. Copy it to your research project's `.claude/loop.md`, fill in the `CONFIG` block, and the native `/loop` command re-runs **one iteration per firing** — `reharm:pushing` picks the next move, then the recommended skill executes, with the main session standing in for your approvals.
 
 The quickest path is the bundled wizard — **one command from zero to a running loop**:
 
 ```bash
-/reharm:loop-setup       # detects the scope, interviews for CONFIG, validates the experiment gate,
-                         # writes .claude/loop.md, then starts the native /loop — all in one invocation
+/reharm:loop-setup       # detects the scope, checks it declares an open decision, interviews for CONFIG,
+                         # validates the experiment gate, writes .claude/loop.md, then starts the
+                         # native /loop — all in one invocation
 ```
 
 No hand-copying needed — the wizard writes `.claude/loop.md` for you. Manual setup (copy the template, fill CONFIG yourself) remains a valid alternative. Either way the file is a point-in-time copy owned by your research project: plugin upgrades never touch it, so re-run the wizard afterwards to refresh it (your CONFIG is shown and kept, the ledger carries over, and your scope/wiki needs no migration). The loop then runs as:

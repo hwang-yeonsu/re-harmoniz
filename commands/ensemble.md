@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz answer synthesis — assembles the scope's hardened claims into one citable deliverable answering the central question, confidence set by the weakest load-bearing link. Writes only wiki/deliverables/ + close-out files; node states never change."
+description: "re:Harmoniz answer synthesis — assembles what survived into one citable deliverable answering a declared decision (or the central question), confidence set by the weakest load-bearing link. Run it as soon as the decision can be taken. Writes only wiki/deliverables/ + close-out files; node states never change."
 ---
 
 # reharm:ensemble — Answer Synthesis (deliverable)

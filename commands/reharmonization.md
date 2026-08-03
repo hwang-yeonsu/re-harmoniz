@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz evolution session — one full cycle of Retrospect → Target → Mutate → Select → Record; nodes are hammered with refutations and only survivors gain a generation."
+description: "re:Harmoniz evolution session — one full cycle of Retrospect → Target → Mutate → Select → Record, serving one open decision; verification depth follows what rests on the node, and branches nothing rests on are pruned rather than judged."
 ---
 
 # reharm:reharmonization — Evolution Session (5 Phases, One Cycle)
