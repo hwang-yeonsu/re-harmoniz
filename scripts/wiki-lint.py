@@ -45,12 +45,22 @@ Checks (EVOLUTION.md §4 Phase E.3):
      `unknown_serves_target`, and `unassigned_claims` — the queue the pruning
      sweep works from. All warnings; the binding is optional so every
      pre-1.0.0 node stays valid with no migration.
+ 10. decision lifecycle (§1, §3) — a decision may also be `superseded` (it
+     stopped being the right question, as opposed to being answered), which
+     leaves its row in place so the ID can never be recycled. Reported as
+     `duplicate_decision_id` (ID reuse), `stale_serves_target` (a node still
+     bound to a superseded decision — a re-binding job, not a dead pointer),
+     and `prune_without_restore_point` (a `pruned` node whose body records no
+     `Pruned from <status>:` line, which is what makes §3's reversibility
+     executable without reading git). Warnings.
 
 `clean` = the five checks all count zero (`unresolved_external`,
 `allowed_external`, `legacy_question_status`, `census_drift`,
 `eval_findings`, `forward_looking_in_node_body`,
 `experiment_missing_decision_at_stake`, `no_decisions_declared`,
-`unknown_serves_target`, and `unassigned_claims` are warnings and excluded).
+`duplicate_decision_id`, `unknown_serves_target`, `stale_serves_target`,
+`unassigned_claims`, and `prune_without_restore_point` are warnings and
+excluded).
 
 Usage:
   wiki-lint.py            # human-readable text
@@ -672,41 +682,60 @@ DECISION_HEADING_RE = re.compile(
 )
 DECISION_ROW_RE = re.compile(r"^\|\s*(D\d+)\s*\|[^|]*\|\s*([A-Za-z][A-Za-z-]*)\s*\|\s*$")
 ANY_HEADING_RE = re.compile(r"^#{1,6}\s")
-SETTLED_DECISION = "settled"
+# §1 decision lifecycle. `open` is the default reading; the other two are the
+# terminal states, and they mean different things:
+#   settled    — the decision was taken. Its branches are prune candidates.
+#   superseded — the decision stopped being the right question (reframed, split,
+#                or made moot). It was never answered, so recording it `settled`
+#                would leave a false record; its branches need RE-BINDING to the
+#                successor decision before they are judged dead.
+# A superseded row is never deleted, which is what makes ID reuse detectable:
+# a recycled `D1` shows up as a duplicate row (`duplicate_decision_id`).
+DECISION_TERMINAL_STATUSES = ("settled", "superseded")
 
 
-def load_declared_decisions() -> dict:
+def load_declared_decisions() -> tuple[dict, list[dict]]:
     """The decisions this scope exists to settle, from the scope CLAUDE.md (§10).
 
     Rows live under a `Goal & Open Decisions` heading; parsing stops at the next
     heading, so a D-shaped table row in a later section cannot leak in. The table
     header and separator rows never match (the first cell must be `D<digits>`).
 
-    A row whose status is neither `open` nor `settled` counts as **open** — the
-    conservative reading, because an unrecognized status must never silently
-    retire a decision, which would in turn let a node be pruned against a
-    decision nobody closed.
+    A row whose status is none of `open` / `settled` / `superseded` counts as
+    **open** — the conservative reading, because an unrecognized status must
+    never silently retire a decision, which would in turn let a node be pruned
+    against a decision nobody closed.
 
-    Returns `{"declared": N, "open": [...], "settled": [...]}`; an absent block
-    (or absent CLAUDE.md) yields zero declared decisions, and every `serves:`
-    check below then stays quiet — a scope that has not declared its goal yet is
-    not in violation, it is unconfigured (§10).
+    A repeated ID keeps its **first** row and is reported as a duplicate. That
+    is the ID-reuse signal: a retired decision whose row was deleted so a new
+    one could take the name would leave every legacy `serves: D1` pointing at
+    something it was never about.
+
+    Returns `({"declared": N, "open": [...], "settled": [...],
+    "superseded": [...]}, duplicates)`; an absent block (or absent CLAUDE.md)
+    yields zero declared decisions, and every `serves:` check below then stays
+    quiet — a scope that has not declared its goal yet is not in violation, it
+    is unconfigured (§10).
     """
-    empty: dict = {"declared": 0, "open": [], "settled": []}
+    buckets: dict = {"open": [], "settled": [], "superseded": []}
+    duplicates: list[dict] = []
+
+    def result() -> tuple[dict, list[dict]]:
+        return {"declared": sum(len(v) for v in buckets.values()), **buckets}, duplicates
+
     claude_md = SCOPE_ROOT / "CLAUDE.md"
     if not claude_md.is_file():
-        return empty
+        return result()
     try:
         lines = claude_md.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError):
-        return empty
+        return result()
     start = next(
         (i for i, line in enumerate(lines) if DECISION_HEADING_RE.match(line)), None
     )
     if start is None:
-        return empty
-    open_ids: list[str] = []
-    settled_ids: list[str] = []
+        return result()
+    seen: set[str] = set()
     for line in lines[start + 1 :]:
         if ANY_HEADING_RE.match(line):
             break
@@ -714,14 +743,24 @@ def load_declared_decisions() -> dict:
         if not m:
             continue
         did, status = m.group(1), m.group(2).lower()
-        bucket = settled_ids if status == SETTLED_DECISION else open_ids
-        if did not in bucket:
-            bucket.append(did)
-    return {
-        "declared": len(open_ids) + len(settled_ids),
-        "open": open_ids,
-        "settled": settled_ids,
-    }
+        if did in seen:
+            duplicates.append(
+                {
+                    "path": "CLAUDE.md",
+                    "id": did,
+                    "issue": f"`{did}` is declared more than once — only the "
+                    "first row counts (§1)",
+                    "hint": "a decision ID is permanent: retire a decision with "
+                    "`superseded` and leave its row in place rather than "
+                    "reusing the ID, or every existing `serves:` silently "
+                    "re-points at the new decision",
+                }
+            )
+            continue
+        seen.add(did)
+        bucket = status if status in DECISION_TERMINAL_STATUSES else "open"
+        buckets[bucket].append(did)
+    return result()
 
 
 def parse_list_entries(val) -> list[str]:
@@ -739,12 +778,19 @@ def parse_list_entries(val) -> list[str]:
     return [p.strip().strip("\"'") for p in s.split(",") if p.strip().strip("\"'")]
 
 
-def check_serves(pages: list[dict], decisions: dict) -> tuple[list[dict], list[str]]:
+def check_serves(
+    pages: list[dict], decisions: dict
+) -> tuple[list[dict], list[dict], list[str]]:
     """§2 `serves:` — the declared decision(s) a node bears on.
 
-    Two warnings, both quiet until the scope declares decisions (§10):
+    Three warnings, all quiet until the scope declares decisions (§10):
       * `unknown_serves_target` — a `serves:` entry naming no declared decision,
         i.e. a node bound to a decision that was renamed or never existed.
+      * `stale_serves_target` — a `serves:` entry naming a `superseded` decision
+        (§1). Distinct from the unknown case on purpose: the ID still exists and
+        the successor is one row away, so this is a **re-binding** job for
+        `critique`, not a broken pointer. Reporting it as unknown would push the
+        node toward the prune queue when what it needs is a new binding.
       * `unassigned_claims` — an evolving node with no `serves:` at all. Not an
         error (the key is optional, so every legacy node stays valid) but it is
         the queue the pruning sweep works from: an unassigned node is one the
@@ -753,9 +799,11 @@ def check_serves(pages: list[dict], decisions: dict) -> tuple[list[dict], list[s
     Terminal nodes (`deprecated`/`pruned`) are exempt — they already left.
     """
     if decisions["declared"] == 0:
-        return [], []
-    known = set(decisions["open"]) | set(decisions["settled"])
+        return [], [], []
+    superseded = set(decisions["superseded"])
+    known = set(decisions["open"]) | set(decisions["settled"]) | superseded
     unknown: list[dict] = []
+    stale: list[dict] = []
     unassigned: list[str] = []
     for page in pages:
         if page["kind"] not in EVOLVING_DIRS:
@@ -777,7 +825,55 @@ def check_serves(pages: list[dict], decisions: dict) -> tuple[list[dict], list[s
                         "`Goal & Open Decisions` block (§10)",
                     }
                 )
-    return unknown, sorted(unassigned)
+            elif entry in superseded:
+                stale.append(
+                    {
+                        "path": page["path"],
+                        "target": entry,
+                        "hint": f"`{entry}` is superseded (§1) — re-bind this node "
+                        "to the successor decision via `reharm:critique`, or "
+                        "prune it if nothing took its place",
+                    }
+                )
+    return unknown, stale, sorted(unassigned)
+
+
+# §3 pruning is reversible — "flip the node back to the status it held" — which
+# only works if the prune line recorded that status. Terminal statuses are not
+# restore points: flipping back to `pruned` restores nothing.
+RESTORABLE_STATUSES = tuple(s for s in MATURITY_STATUSES if s not in TERMINAL_STATUSES)
+PRUNE_RESTORE_RE = re.compile(
+    r"^\s*Pruned from\s+(" + "|".join(RESTORABLE_STATUSES) + r")\s*:", re.MULTILINE
+)
+
+
+def check_prune_restore_point(node_pages: list[dict]) -> list[dict]:
+    """§3: every `pruned` node's body carries `Pruned from <status>: <reason>`.
+
+    Without it the reversibility §3 promises is only recoverable from git, and
+    a scope that later reopens a decision cannot tell whether the branch it is
+    restoring was a `seed` or an `evergreen`. Warning only — a pre-1.0.0 scope
+    has no pruned nodes at all, so this can never fire retroactively.
+    """
+    findings: list[dict] = []
+    for page in node_pages:
+        if page["kind"] not in EVOLVING_DIRS:
+            continue
+        if (page["fm"] or {}).get("status") != "pruned":
+            continue
+        if PRUNE_RESTORE_RE.search(page.get("body") or ""):
+            continue
+        findings.append(
+            {
+                "path": page["path"],
+                "issue": "pruned without a restore point — the body records no "
+                "`Pruned from <status>:` line (§3)",
+                "hint": "append `Pruned from "
+                f"<{' ｜ '.join(RESTORABLE_STATUSES)}>: <reason> (YYYY-MM-DD)`, "
+                "so reopening the decision can flip the node back",
+            }
+        )
+    return findings
 
 
 def check_eval() -> list[dict]:
@@ -857,8 +953,9 @@ def run(want_json: bool) -> int:
     status_census = compute_status_census(node_pages)
     census_drift = check_census_drift(status_census)
     eval_findings = check_eval()
-    decisions = load_declared_decisions()
-    unknown_serves, unassigned_claims = check_serves(node_pages, decisions)
+    decisions, duplicate_decisions = load_declared_decisions()
+    unknown_serves, stale_serves, unassigned_claims = check_serves(node_pages, decisions)
+    prune_restore = check_prune_restore_point(node_pages)
     # an undeclared goal only matters once there is something to steer (§10);
     # a freshly scaffolded, empty scope stays quiet
     no_decisions = (
@@ -890,8 +987,11 @@ def run(want_json: bool) -> int:
         "forward_looking_in_node_body": len(forward_looking),
         "experiment_missing_decision_at_stake": len(no_decision),
         "no_decisions_declared": len(no_decisions),
+        "duplicate_decision_id": len(duplicate_decisions),
         "unknown_serves_target": len(unknown_serves),
+        "stale_serves_target": len(stale_serves),
         "unassigned_claims": len(unassigned_claims),
+        "prune_without_restore_point": len(prune_restore),
     }
     clean = all(
         counts[k] == 0
@@ -926,8 +1026,11 @@ def run(want_json: bool) -> int:
             "forward_looking_in_node_body": forward_looking,
             "experiment_missing_decision_at_stake": no_decision,
             "no_decisions_declared": no_decisions,
+            "duplicate_decision_id": duplicate_decisions,
             "unknown_serves_target": unknown_serves,
+            "stale_serves_target": stale_serves,
             "unassigned_claims": unassigned_claims,
+            "prune_without_restore_point": prune_restore,
         },
     }
 
@@ -964,10 +1067,19 @@ def run(want_json: bool) -> int:
             no_decision,
         ),
         ("no declared decisions (warning — §10 goal block)", no_decisions),
+        ("decision IDs declared twice (warning — §1)", duplicate_decisions),
         ("serves: naming an undeclared decision (warning — §2)", unknown_serves),
+        (
+            "serves: naming a superseded decision — re-bind (warning — §1)",
+            stale_serves,
+        ),
         (
             "claims not bound to any decision (warning — §2 serves:, the prune queue)",
             unassigned_claims,
+        ),
+        (
+            "pruned without a restore point (warning — §3 reversibility)",
+            prune_restore,
         ),
     ):
         print(f"\n## {label}: {len(items)}")

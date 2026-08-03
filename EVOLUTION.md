@@ -50,9 +50,18 @@ Every scope declares, in its `CLAUDE.md` (§10), the **decisions it exists to se
 |---|---|---|
 | D1 | Do we replace 32-bit Adam with 8-bit in the training config? | open |
 | D2 | Do we need a stable-embedding layer before shipping? | settled |
+| D3 | Which optimizer family do we standardize on? → split into D1, D5 | superseded |
 ```
 
-A decision is **outside the wiki**: a design choice, a build/deploy step, a spend, a guardrail. "The claim reaches `hardened`" is not a decision — it is bookkeeping (the §12 rule, now applied scope-wide). Statuses are `open` and `settled`; anything else reads as `open`, so a typo can never retire a decision by accident.
+A decision is **outside the wiki**: a design choice, a build/deploy step, a spend, a guardrail. "The claim reaches `hardened`" is not a decision — it is bookkeeping (the §12 rule, now applied scope-wide). Statuses are `open`, `settled`, and `superseded`; anything else reads as `open`, so a typo can never retire a decision by accident.
+
+**When the decision itself changes.** Research routinely discovers that the question was wrong — too broad, badly framed, or made moot by something learned along the way. That outcome is neither `open` nor `settled`, and recording it as `settled` would leave a false record that the scope answered something it never did. It is **`superseded`**: the decision stopped being the right question. Three rules make it safe:
+
+1. **The row stays.** A superseded decision is never deleted from the table — its text gains a pointer to whatever replaced it (`→ D1, D5`, or `→ none: moot because …`). This is what makes ID reuse impossible: recycling `D1` for a new decision would silently re-point every existing `serves: D1` at something it was never about. A repeated ID is reported as `duplicate_decision_id`.
+2. **Its nodes are re-bound before they are judged dead.** A node whose `serves:` names a superseded decision is *not* an unassigned prune candidate — the successor is one row away. `wiki-lint.py` reports it separately as `stale_serves_target`, and `reharm:critique` offers *re-bind to the successor* first, pruning only what nothing took over.
+3. **Reopening is a status flip, not a recovery job.** A `settled` decision may go back to `open` (the ruling did not hold, or conditions changed), and §3's pruned nodes flip back with it — which works only because every prune records the status it cut from (`Pruned from hardened: …`). Without that line the restore point exists only in git, so `wiki-lint.py` reports its absence as `prune_without_restore_point`.
+
+Splitting is the common case, and it is just rules 1–2 applied together: mark the old decision `superseded → D4, D5`, add the two rows, re-bind each serving node to whichever successor it actually bears on. Nothing is deleted and no node loses its history.
 
 Every evolving node may carry **`serves:`** (§2) — the decision IDs it bears on. That binding is what makes pruning possible:
 
@@ -61,7 +70,7 @@ Every evolving node may carry **`serves:`** (§2) — the decision IDs it bears 
 - **Pruning** (§3, §4 Phase C) cuts nodes bound to no open decision — `status: pruned`, which is *not* `deprecated`: the node was not refuted, it stopped mattering.
 - **Progress** (§7) is counted in decisions settled and branches pruned, not in generations alone.
 
-`serves:` is **optional**, so every pre-1.0.0 node stays valid with no migration. `wiki-lint.py` reports the gaps as warnings — `no_decisions_declared` (only once evolving nodes exist), `unknown_serves_target`, and `unassigned_claims`, the queue the pruning sweep works from — and never breaks `clean` over them. A scope that has not declared its decisions is not in violation; it is unconfigured, and every relevance rule above simply stays inert until it is.
+`serves:` is **optional**, so every pre-1.0.0 node stays valid with no migration. `wiki-lint.py` reports the gaps as warnings — `no_decisions_declared` (only once evolving nodes exist), `duplicate_decision_id`, `unknown_serves_target`, `stale_serves_target`, `prune_without_restore_point`, and `unassigned_claims`, the queue the pruning sweep works from — and never breaks `clean` over them. A scope that has not declared its decisions is not in violation; it is unconfigured, and every relevance rule above simply stays inert until it is.
 
 ### sources/ vs claims/ — the distinction that drives everything
 
@@ -109,7 +118,7 @@ status: seed                    # seed | developing | hardened | evergreen | dep
 confidence: low                 # high | medium | low
 generation: 1                   # +1 each time a revision survives verification
 last_challenged: 2026-06-11     # date of last refutation attempt (decay-curve anchor)
-challenges_survived: 0          # count of survived objections (promotion evidence)
+challenges_survived: 0          # survived objections, full + single depth (§5.1)
 supports: []                    # wikilinks to nodes this claim supports
 contradicts: []                 # wikilinks to conflicting nodes (kept on BOTH until resolved)
 sources: []                     # wikilinks to evidence (.raw/ paths or sources/ pages)
@@ -265,7 +274,7 @@ Independence has ancestry: the §5 evidence lens treats two sources whose `deriv
 | developing → hardened | survived ≥1 **full-depth** adversarial verification (all three lenses, ≥2/3 — a single-lens pass does not open this gate, §5.1) + the class currency (§2 `evidence_class`): **literature** — ≥2 **independent** sources · **field** — ≥2 `## Field Evidence` entries under materially different conditions (another seed/split/period: replication, since an independent external source often cannot exist for a fact measured on the scope's own data) · **design** — the decision recorded as adopted (a design-intent `sources/` page or a critique verdict; the owner's adjudication is the evidence) |
 | hardened → evergreen | ≥1 entry in `## Field Evidence` (real-world feedback is the only gate). If that evidence is conditional, the claim's scope must be narrowed to match those conditions, and no open counterexample may remain (§5 reproducibility lens). A `field`-class claim arriving at `hardened` already carries this row's entry count (its replication entries *are* field evidence) — what remains is the reproducibility residue above, and when it holds, proposing both promotions in the same session is legitimate |
 | any → deprecated | total collapse under verification, **or absorption into a parent claim via a critique merge verdict** (the assertion lives on in the parent; the absorbed node's body becomes a one-line pointer — `Absorbed into [[parent]] (YYYY-MM-DD critique)` — so inbound wikilinks keep resolving). **Never delete** — flip status so the node leaves the graph but the record stays |
-| any → **pruned** | the node bears on no open decision: `serves:` is empty and no open decision depends on it, or every decision it serves is now `settled`. **This is not a verdict on truth** — a pruned node may be correct, well-sourced, and high-generation; it simply stopped bearing on anything the scope is deciding. The body stays verbatim and gains a one-line reason (`Pruned: <unassigned ｜ all served decisions settled ｜ superseded by [[decision-source]]> (YYYY-MM-DD)`). Like `deprecated` it is a status flip — never a delete — and it is **reversible**: if a decision reopens, flip the node back to the status it held and it re-enters the cadence |
+| any → **pruned** | the node bears on no open decision: `serves:` is empty and no open decision depends on it, or every decision it serves is now `settled`. **This is not a verdict on truth** — a pruned node may be correct, well-sourced, and high-generation; it simply stopped bearing on anything the scope is deciding. The body stays verbatim and gains a one-line reason that **opens with the status being cut from** — `Pruned from <seed｜developing｜hardened｜evergreen>: <unassigned ｜ all served decisions settled ｜ superseded by [[decision-source]]> (YYYY-MM-DD)`. Like `deprecated` it is a status flip — never a delete — and it is **reversible**: if a decision reopens, flip the node back to the status that line names and it re-enters the cadence |
 
 - Promotion is never auto-computed. Phase D **proposes** it with evidence; the evolution report records the rationale.
 - **Pruning is proposed, never automatic** — the same rule, for the same reason. Phase C reports prune candidates with the reason quoted; the user picks (§4 Phase B spirit). A linter can see that `serves:` is empty; only the user knows whether that is a gap in the binding or a genuinely dead branch.
@@ -296,7 +305,7 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
    (`<plugin-root>` = the installed plugin directory containing this file; the script reads `./wiki/` under the cwd). The score formula is unchanged — `--serves` filters, it does not re-weight — so an empty result means "no frontier inside this decision", not an error.
 3. Decay candidates: nodes serving that decision whose `last_challenged` exceeds their cadence (§3) — read the frontmatter dates and compare directly; scopes are small, no script involved. Nodes bearing on no open decision are **not** decay candidates (§3); they are prune candidates.
 4. A user-named topic always wins, decision filter included.
-5. Present the merged candidate list and **let the user choose — never auto-select**. Record the active decision in the report's `## Targets & Why` (§11.1).
+5. Present the merged candidate list and **let the user choose — never auto-select**. Record the active decision in the report's `## Decision & Targets` (§11.1).
 
 ### Phase C. Mutation
 Per target:
@@ -310,12 +319,13 @@ Per target:
   - `serves:` empty and no open decision depends on it (the lint `unassigned_claims` list is the starting point);
   - every decision it serves is now `settled`;
   - an owner design decision absorbed this session collapsed the branch it stood on.
-  Present them as one batch with the reason quoted; the user picks which flip to `status: pruned` (§3). Unpicked candidates stay exactly as they are. **This sweep is what keeps the scope's cost proportional to its open decisions** — without it, every assertion ever atomized keeps drawing refuters and cadence for the life of the scope. Nodes newly bound to a decision this session are *not* candidates: check the binding before the branch.
+  **A node bound to a `superseded` decision is not on this list** (lint: `stale_serves_target`). Re-bind it to the successor decision first (§1); only what no successor took over becomes a prune candidate, and then under the *unassigned* reason, not the superseded one. Pruning on a superseded binding would cut branches for a question that was replaced rather than answered.
+  Present them as one batch with the reason quoted; the user picks which flip to `status: pruned` (§3), and each flip records the status it cut from so it can be undone. Unpicked candidates stay exactly as they are. **This sweep is what keeps the scope's cost proportional to its open decisions** — without it, every assertion ever atomized keeps drawing refuters and cadence for the life of the scope. Nodes newly bound to a decision this session are *not* candidates: check the binding before the branch.
   - The same walk covers the **experiment queue**: for every `type: experiment` node that is neither `retired` nor already carrying a recorded re-run retirement, re-read its `## Decision at stake` (§2) and report those whose two branches this session's material collapsed into one outcome. Retiring a queued re-run does **not** touch the node's hypothesis or criterion (§4 forbids post-hoc redefinition of a frozen design record).
 
 ### Phase D. Natural Selection
 Run §5 on every mutation, **at the depth the node's decision role earns** (§5.1):
-- **Survives** → `generation +1`, `challenges_survived +1`, refresh `last_challenged`, propose promotion if §3 conditions hold.
+- **Survives** → `challenges_survived +1`, refresh `last_challenged`; **at full depth only**, also `generation +1` and propose promotion if §3 conditions hold. A single-lens pass buys currency, never a generation — that is what keeps "generation" meaning "survived all three lenses" (§5.1). Because `challenges_survived` counts both depths, the developing→hardened gate reads its evidence from the E#### report's depth marks (§11.1), not from the counter alone.
 - **Partial collapse** → absorb the valid objection into `## Objections & Limits` — compress it to its ≤2-line boundary condition and **rewrite the section to the current set** (§2); the refuter's full reason is archived in the E#### report (§11.1) — then revise and re-judge **once** (§5.3). A node still partially collapsing after that single re-judge keeps its current generation, keeps the residual objection on the record, and its unresolved part is filed as a `questions/` node — the session moves on rather than grinding.
 - **Total collapse** → `status: deprecated`.
 - **Not worth judging** → if a target turns out to bear on no open decision, do not run refuters on it at all: report it as a prune candidate (above) and drop it from the session. Refuting a node nothing depends on costs three sub-agents to learn something no decision uses.
@@ -440,7 +450,7 @@ At the end of every reharmonization session, self-grade against machine-checkabl
   - `change-strategy` — any of:
     1. the **same** check name appears in `failed_checks` 3 sessions in a row;
     2. 3 sessions in a row rejected every attempted mutation (`mutations_rejected` > 0 with `generation_progress` == 0 in each);
-    3. **3 sessions in a row moved no decision while gaining generations** — Σ `decisions_settled` == 0 **and** Σ `branches_pruned` == 0 **and** Σ `generation_progress` > 0. The wiki is getting more reliable about things nobody is waiting on. This is the exact failure the protocol's decision counters exist to catch, and it reads as healthy under every other check: lint clean, survival rate high, generations climbing. The fix is never another verification round — it is to re-read the decision block and pick a target that serves an open one, or to admit the decisions are stale and rewrite them.
+    3. **3 sessions in a row moved no decision while gaining generations** — Σ `decisions_settled` == 0 **and** Σ `branches_pruned` == 0 **and** Σ `generation_progress` > 0. The wiki is getting more reliable about things nobody is waiting on. This is the exact failure the protocol's decision counters exist to catch, and it reads as healthy under every other check: lint clean, survival rate high, generations climbing. The fix is never another verification round — it is to re-read the decision block and pick a target that serves an open one, or to admit the decisions are stale and rewrite them (`superseded`, §1 — not deleted, so the branches under them get re-bound rather than silently orphaned).
   - `continue` — otherwise. In particular, a single all-rejected session with healthy neighbors is `continue` — that is selection working, not stagnation.
 - Legacy evals stay readable: v1 carried `trailing_scores`, v2 lacked the decision counters, and in both only `pass` and `stagnation.verdict` are load-bearing — both have existed since v1. Missing counters read as 0, so a v2 trail cannot trigger the new change-strategy case until three v3 sessions exist. New sessions always write v3.
 
@@ -474,7 +484,7 @@ No separate long-term memory state file — these three layers plus git are suff
 
 Every scope's `CLAUDE.md` must contain (template: `templates/SCOPE_CLAUDE.md`):
 
-1. Purpose & topic boundaries (one paragraph) **and the `### Goal & Open Decisions` block** (§1): the goal in one line, plus one `| ID | decision | open｜settled |` row per decision the scope exists to settle. This block is what every relevance rule reads — target selection (§4 Phase B), verification depth (§5.1), the pruning sweep (§4 Phase C), and the §7 counters. A scope may start with one decision; starting with none leaves the loop unsteered, and `wiki-lint.py` says so (`no_decisions_declared`) as soon as evolving nodes exist. Keeping it current is part of the work: settling a decision means flipping its row, which is what lets the next session prune what it carried.
+1. Purpose & topic boundaries (one paragraph) **and the `### Goal & Open Decisions` block** (§1): the goal in one line, plus one `| ID | decision | open｜settled｜superseded |` row per decision the scope exists to settle. This block is what every relevance rule reads — target selection (§4 Phase B), verification depth (§5.1), the pruning sweep (§4 Phase C), and the §7 counters. A scope may start with one decision; starting with none leaves the loop unsteered, and `wiki-lint.py` says so (`no_decisions_declared`) as soon as evolving nodes exist. Keeping it current is part of the work: settling a decision means flipping its row, which is what lets the next session prune what it carried.
 2. **Metadata**: real code-workspace path(s) — the scope is not a code workspace.
 3. Protocol pointer: "This scope follows the re:Harmoniz protocol (`reharm` plugin, EVOLUTION.md)."
 4. Adversarial verification summary (§5 — the channel that injects the rubric into any research loop running inside the scope), including the depth tiers (§5.1) so a loop running inside the scope does not spend three refuters on a node nothing rests on.

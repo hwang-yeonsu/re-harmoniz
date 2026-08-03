@@ -20,8 +20,13 @@
 <!-- Rules of thumb:
      · A decision is something you DO, not something the wiki records. "The claim reaches hardened"
        is bookkeeping, not a decision.
-     · Statuses are `open` and `settled`. Anything else reads as open, so a typo can never retire a
-       decision by accident.
+     · Statuses are `open`, `settled`, and `superseded`. Anything else reads as open, so a typo can
+       never retire a decision by accident.
+     · `superseded` is for a decision that stopped being the RIGHT QUESTION — reframed, split, or made
+       moot — as opposed to one that was answered. Leave its row here, write the successor into its
+       text (`→ D4, D5`, or `→ none: moot because …`), and re-bind its claims via /reharm:critique.
+     · NEVER delete a row to reuse its ID. Every `serves: D1` in the wiki would silently re-point at
+       the new decision; wiki-lint reports the collision as `duplicate_decision_id`.
      · Start with one if that is all you have. Starting with none leaves the loop unsteered, and
        wiki-lint reports it (`no_decisions_declared`) once evolving nodes exist.
      · Claims bind to these IDs via `serves:` (§2). A claim bound to nothing is a prune candidate,

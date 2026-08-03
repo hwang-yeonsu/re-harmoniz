@@ -34,6 +34,25 @@ new evaluator, can come out differently.
   status reads as `open`, so a typo can never retire a decision and thereby let a node be pruned
   against it. `wiki-lint.py` reports a missing block as `no_decisions_declared` — but only once
   evolving nodes exist, so a fresh scope stays quiet.
+- **`superseded` decision status** (§1): the path for a decision that stops being the *right
+  question* — reframed, split, or made moot — as opposed to one that was answered. Recording that as
+  `settled` would leave a false record that the scope answered something it never did. Three rules
+  make it safe: the row **stays in the table** (so an ID can never be recycled under existing
+  `serves:` pointers — a repeat is reported as `duplicate_decision_id`); its nodes are **re-bound to
+  the successor** before anything is cut (`stale_serves_target`, and `reharm:critique` offers
+  *re-bind* ahead of *prune*); and reopening a `settled` decision is a status flip, because every
+  prune records what it cut from (below). Splitting an over-broad decision is these rules applied
+  together — nothing is deleted and no node loses its history.
+- **Prune restore points** (§3): a prune line now opens with the status it cut from —
+  `Pruned from hardened: <reason> (YYYY-MM-DD)`. §3 called pruning reversible from the start, but
+  nothing recorded *what to reverse to*, so the promise was only executable by reading git.
+  `wiki-lint.py` reports the gap as `prune_without_restore_point` (warning; a pre-1.0.0 scope has no
+  pruned nodes, so it can never fire retroactively).
+- **`--include-terminal`** on `boundary-score.py`: the frontier now **excludes `deprecated` and
+  `pruned` pages** by default, and this flag brings them back for auditing. They stay scoreable — a
+  live node's link to one is still a real out-edge — they just leave the ranking. Without this a
+  prune, which bumps `updated`, put the just-cut branch at `recency_weight` 1.0: the top of the very
+  frontier the cut removed it from, and the autonomous loop auto-picks frontier-top.
 - **`serves:`** (§2, optional): the decision IDs a node bears on — the test being *would flipping
   this change which way that decision goes?*, not *is this topically related?*. Drives target
   selection, verification depth, pruning, and the §7 counters. Absent = unassigned, which is a prune
@@ -56,6 +75,9 @@ new evaluator, can come out differently.
   auto-applies — nodes that are unassigned, whose served decisions are all `settled`, or whose branch
   an absorbed design decision collapsed. `reharm:critique` owns the ruling and offers *bind to a
   decision* alongside *prune*, since a missing binding is usually a gap rather than a dead branch.
+  Nodes bound to a `superseded` decision are deliberately **not** on this batch — they go to the
+  re-binding queue, because cutting them would delete branches for a question that was replaced
+  rather than answered. The autonomous loop auto-applies neither.
 - **Decision counters** (§7, eval schema v3): `decisions_settled` and `branches_pruned` as the
   primary progress signals, plus a **third `change-strategy` trigger** — three sessions in a row with
   generation progress but zero decision movement. That is the exact failure this release exists to
@@ -117,6 +139,19 @@ new evaluator, can come out differently.
 
 - `EVOLUTION.md` §3 listed the experiment lifecycle without `retired` (added in 0.15.0), and
   `experiment-design` cited `§5.5` for the prospective reproducibility lens, which is `§5.6`.
+- §4 Phase D granted `generation +1` on any survival, contradicting §5.1's rule that only a
+  full-depth pass earns one. Since the skills defer to `EVOLUTION.md` on conflict and §4 is the
+  procedure an agent follows step by step, that bullet alone would have let the cheap single-lens
+  tier inflate generations — defeating the guarantee this release is built on. It now qualifies the
+  gain with **at full depth only** and points at the report's depth marks as the promotion evidence,
+  since `challenges_survived` counts both depths.
+- §4 Phase B told the session to record the active decision in `## Targets & Why`, a section §11.1
+  had renamed to `## Decision & Targets`.
+- A decision ID declared twice put the same ID in both the `open` and `settled` lists and
+  double-counted `declared`. The first row now wins and the repeat is reported
+  (`duplicate_decision_id`), which is also the ID-reuse signal.
+- `boundary-score.py --page X --serves D` reported `no scoreable page matches 'X'` when X existed but
+  did not serve D, which reads as "no such page". The message now names the decision it searched in.
 
 ## [0.15.0] — 2026-07-27
 

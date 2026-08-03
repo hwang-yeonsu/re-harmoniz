@@ -15,6 +15,7 @@ Collects what the evolution loop could not resolve on its own and puts it in fro
    - unresolved `> [!contradiction]` callout pairs
    - warnings from the latest `wiki/meta/lint/` report
    - **aged open questions**: `status: open` (or legacy-status) questions untouched for ≥4 sessions — they appear in none of the last 4 `E####.md` reports and their `updated` predates all four.
+   - **the re-binding queue (§1)** — the lint `stale_serves_target` list: nodes bound to a decision that is now `superseded` (the question was reframed or split, not answered). These are **not** prune candidates; they are the queue that gets re-pointed at the successor decision first.
    - **the prune queue (§3)** — the branches, not the residue. Three sources, each with its own reason:
      - **unassigned** — the lint `unassigned_claims` list: evolving nodes with no `serves:` while the scope has open decisions.
      - **served-out** — nodes whose `serves:` names only `settled` decisions. Nothing is waiting on them any more.
@@ -34,17 +35,22 @@ Collects what the evolution loop could not resolve on its own and puts it in fro
    - adopt/reject → update body and frontmatter (`confidence`, `status`); on contradiction resolution remove both callouts and absorb the history into `## Objections & Limits`
    - merge → absorb the claim into the parent it details or duplicates: union `sources:`, fold the assertion into the parent's body, `## Objections & Limits`, or `## Field Evidence` (whichever it is); the absorbed node's body becomes a one-line pointer — `Absorbed into [[parent]] (YYYY-MM-DD critique)` — and its `status` flips to `deprecated` (§3: never delete; the stem keeps resolving inbound links). A `> [!contradiction]` pair is **adjudicated, never merged**.
    - deprecate → flip `status` (never delete)
-   - **prune** → flip `status: pruned` and append the one-line reason to the body (`Pruned: <unassigned ｜ all served decisions settled ｜ superseded by [[source]]> (YYYY-MM-DD)`, §3). The body is otherwise left verbatim, the node keeps its `generation`, and inbound wikilinks keep resolving. **Reversible**: if the decision reopens, the node flips back to the status it held. Never confuse this with `deprecate` — `deprecated` says the claim failed, `pruned` says nothing depends on it
+   - **prune** → flip `status: pruned` and append the one-line reason to the body, **opening with the status being cut from**: `Pruned from <seed｜developing｜hardened｜evergreen>: <unassigned ｜ all served decisions settled ｜ superseded by [[source]]> (YYYY-MM-DD)` (§3). That prefix is the restore point — without it the reversibility below is only recoverable from git, and `wiki-lint.py` reports its absence as `prune_without_restore_point`. The body is otherwise left verbatim, the node keeps its `generation`, and inbound wikilinks keep resolving. **Reversible**: if the decision reopens, the node flips back to the status that line names. Never confuse this with `deprecate` — `deprecated` says the claim failed, `pruned` says nothing depends on it
    - **bind** → the node was unassigned only because its `serves:` was never written: add the decision ID the user names and leave everything else alone (it re-enters the cadence next session)
+   - **re-bind** → the node's `serves:` names a `superseded` decision: replace that ID with the successor the user picks (a split may send siblings to different successors). Nothing else about the node changes. Only a node no successor claims falls through to the prune batch, and then as *unassigned*
    - needs-research → rewrite as a sharpened question in `wiki/questions/` (`status: open`; next reharmonization session's Phase B candidate)
    - escalate → flip the question to `status: escalated` + `## Escalation` block (§13 DESIGN); the user carries it to the external tool
    - archive → question `status: archived`
-6. **Settle decisions when a ruling settles one.** If a verdict answers a declared decision outright, say so and flip its row to `settled` in the scope `CLAUDE.md` — with the user's confirmation, since that row is theirs. A settled decision immediately turns its serving nodes into next-session prune candidates, which is the point.
+6. **Move a decision's row when a ruling moves it** — always with the user's confirmation, since that row is theirs:
+   - **settled** — a verdict answers the decision outright. Its serving nodes become next-session prune candidates, which is the point.
+   - **superseded** — the ruling shows the decision was the wrong question: too broad, badly framed, or made moot (§1). Never delete the row and never reuse its ID — mark it `superseded`, write the successor into its text (`→ D4, D5`, or `→ none: moot because …`), add the successor rows, then run the **re-bind** verdict above on every node the lint lists under `stale_serves_target`. Splitting an over-broad decision is this path, not a rewrite in place.
+   - **reopened** — a `settled` decision goes back to `open` (the ruling did not hold, conditions changed). Then walk the nodes pruned under it: each one's `Pruned from <status>:` line names what to flip it back to (§3).
 7. **Close out**: `index.md` (Decisions table + census incl. `pruned` + `Serves` column), `hot.md`, `log.md` (`## [date] critique | N verdicts · M pruned`).
 
 ## Constraints
 
 - **User verdicts never raise `generation`** — generations are earned only by surviving full-depth adversarial verification (reharmonization Phase D, §5.1). Verdicts may adjust `confidence` and `status`.
-- **Pruning never edits the claim.** Status flip plus a one-line reason; the body, its objections, and its generation stay as they were. A pruned node is a record, not a correction.
+- **Pruning never edits the claim.** Status flip plus a one-line reason carrying the restore point; the body, its objections, and its generation stay as they were. A pruned node is a record, not a correction.
+- **A decision ID is permanent.** Retire a decision with `superseded` and leave its row in place; never delete a row so a new decision can take the name. Recycling an ID silently re-points every existing `serves:` at a decision it was never about — `wiki-lint.py` reports the collision as `duplicate_decision_id`.
 - No auto-adjudication without the interview — converging on the user's judgment is this skill's entire purpose. Aging and pruning in particular only ever *propose* a batch.
 - New question statuses use the §2 lifecycle (`open|answered|escalated|archived`); legacy maturity values on existing questions are left alone unless the verdict touches that node.

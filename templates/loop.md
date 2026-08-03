@@ -35,7 +35,9 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
 ## DECISION POLICY — how the main session stands in for the user
 - ACTIVE DECISION         : read SCOPE/CLAUDE.md `### Goal & Open Decisions` (EVOLUTION.md §1) EVERY
                             tick. Zero open decisions → STOP("no-decisions"): the loop must never
-                            author or settle a decision, and with none open it has nothing to steer by.
+                            author, settle, or supersede a decision, and with none open it has nothing
+                            to steer by. `settled` and `superseded` rows are NOT open — read the lint
+                            `decisions.open` list, never the row count.
                             One open → that is the active decision. Several → pick the one CLOSEST TO
                             ANSWERABLE (most serving nodes at hardened-or-above; tie → lowest ID), so
                             value lands soonest. Record the ID in the ledger and in E####.md.
@@ -51,11 +53,19 @@ and double-logged (`E####.md` + the loop LEDGER) for after-the-fact audit.
                             rationale in E####.md "Decision & Targets".
 - prune sweep (Phase C)   : auto-apply ONLY the unambiguous case — a node whose every served decision
                             is `settled`, or whose branch a design decision absorbed this tick
-                            collapsed. NEVER auto-prune an `unassigned` node (lint
-                            `unassigned_claims`): a missing `serves:` is usually a binding gap, not a
-                            dead branch, and pruning it would hide work rather than shed it. File
-                            those in SCOPE/wiki/questions/ as one "needs binding" entry for the human.
-                            Log both counts in the ledger (`pruned`, `needs_binding`).
+                            collapsed. Every auto-prune writes its restore point: append
+                            `Pruned from <status>: <reason> (YYYY-MM-DD)` to the body BEFORE flipping
+                            `status: pruned` (EVOLUTION.md §3) — a prune the human cannot undo is not
+                            a prune the loop is allowed to make.
+                            NEVER auto-prune two kinds of node:
+                            · `unassigned` (lint `unassigned_claims`) — a missing `serves:` is usually
+                              a binding gap, not a dead branch; pruning it hides work rather than
+                              shedding it.
+                            · `stale` (lint `stale_serves_target`) — bound to a `superseded` decision,
+                              i.e. a question that was REPLACED, not answered. Its successor is a
+                              re-binding judgement, and picking successors is the owner's call.
+                            File both in SCOPE/wiki/questions/ as one "needs binding" entry for the
+                            human. Log the counts in the ledger (`pruned`, `needs_binding`).
 - reharmonization Phase D : depth per EVOLUTION.md §5.1 — load-bearing for the active decision → all
                             3 lenses (≥2/3 must survive); serves it but not load-bearing → 1 lens by
                             evidence_class; bears on no open decision → do NOT judge, report as a

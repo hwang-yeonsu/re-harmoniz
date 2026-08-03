@@ -1102,7 +1102,8 @@ class DeclaredDecisionsTest(unittest.TestCase):
         self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
         data = self.lint()
         self.assertEqual(
-            data["decisions"], {"declared": 2, "open": ["D1"], "settled": ["D2"]}
+            data["decisions"],
+            {"declared": 2, "open": ["D1"], "settled": ["D2"], "superseded": []},
         )
 
     def test_table_header_and_separator_rows_are_not_decisions(self):
@@ -1325,6 +1326,185 @@ class PrunedStatusTest(unittest.TestCase):
         self.assertEqual(
             data["findings"]["missing_frontmatter"][0]["invalid"]["status"], "pruned"
         )
+
+
+class PruneRestorePointTest(unittest.TestCase):
+    """§3 calls pruning **reversible** — "flip the node back to the status it
+    held". Nothing recorded that status, so the promise was only executable by
+    reading git. The prune line therefore carries the pre-prune status:
+    `Pruned from <status>: <reason> (YYYY-MM-DD)`.
+
+    A warning, not an error: it never breaks `clean`, and legacy `deprecated`
+    nodes are untouched — deprecation is a verdict on the claim and is not
+    meant to be undone."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _pruned(self, body: str):
+        write(
+            self.scope,
+            "wiki/claims/잘린노드.md",
+            node_text(title="p", status="pruned", body=body),
+        )
+
+    def test_pruned_without_a_restore_point_is_reported(self):
+        self._pruned("Pruned: all served decisions settled (2026-08-03)")
+        data = self.lint()
+        self.assertEqual(data["counts"]["prune_without_restore_point"], 1)
+        self.assertEqual(
+            data["findings"]["prune_without_restore_point"][0]["path"],
+            "wiki/claims/잘린노드.md",
+        )
+        self.assertTrue(data["clean"])
+
+    def test_pruned_with_a_restore_point_is_quiet(self):
+        self._pruned("Pruned from hardened: all served decisions settled (2026-08-03)")
+        self.assertEqual(self.lint()["counts"]["prune_without_restore_point"], 0)
+
+    def test_restore_point_must_name_a_real_maturity_status(self):
+        # "Pruned from wherever" restores nothing — the point is a status to
+        # flip back to, so an unrecognized word is the same gap as no word
+        self._pruned("Pruned from 어딘가: 이유 (2026-08-03)")
+        self.assertEqual(self.lint()["counts"]["prune_without_restore_point"], 1)
+
+    def test_restore_point_is_found_anywhere_in_the_body(self):
+        self._pruned(
+            "# 제목\n\n본문은 그대로 남는다.\n\n"
+            "Pruned from developing: 미배정 (2026-08-03)\n"
+        )
+        self.assertEqual(self.lint()["counts"]["prune_without_restore_point"], 0)
+
+    def test_deprecated_needs_no_restore_point(self):
+        write(
+            self.scope,
+            "wiki/claims/버려진노드.md",
+            node_text(title="d", status="deprecated", body="총체적 붕괴."),
+        )
+        self.assertEqual(self.lint()["counts"]["prune_without_restore_point"], 0)
+
+    def test_a_terminal_restore_point_is_not_a_restore_point(self):
+        # flipping back to `pruned`/`deprecated` restores nothing
+        self._pruned("Pruned from pruned: 이유 (2026-08-03)")
+        self.assertEqual(self.lint()["counts"]["prune_without_restore_point"], 1)
+
+
+class DecisionLifecycleTest(unittest.TestCase):
+    """§1: a declared decision can stop being the right question — the branch
+    was reframed, split, or made moot — which is neither `open` nor `settled`.
+
+    `superseded` is that third terminal state. Its row **stays in the table**,
+    which is what makes ID reuse impossible: a reused `D1` shows up as a
+    duplicate row, and the linter says so."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _pair(self, *, a_fm="", b_fm=""):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[노드B]]", extra_fm=a_fm),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드B.md",
+            node_text(title="B", body="[[노드A]]", extra_fm=b_fm),
+        )
+
+    def test_superseded_is_neither_open_nor_settled(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md(
+                "| D1 | 질문 자체가 바뀜 → D4 | superseded |",
+                "| D4 | 다시 쓴 결정 | open |",
+            ),
+        )
+        self._pair(a_fm='serves: ["D4"]', b_fm='serves: ["D4"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D4"])
+        self.assertEqual(data["decisions"]["settled"], [])
+        self.assertEqual(data["decisions"]["superseded"], ["D1"])
+        self.assertEqual(data["decisions"]["declared"], 2)
+
+    def test_serves_pointing_at_a_superseded_decision_still_resolves(self):
+        # the ID is still declared, so this is a re-binding job (critique), not
+        # the "names no decision at all" fault `unknown_serves_target` reports
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md(
+                "| D1 | 대체됨 → D4 | superseded |", "| D4 | 후속 | open |"
+            ),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D4"]')
+        data = self.lint()
+        self.assertEqual(data["counts"]["unknown_serves_target"], 0)
+        self.assertEqual(data["counts"]["stale_serves_target"], 1)
+        finding = data["findings"]["stale_serves_target"][0]
+        self.assertEqual(finding["path"], "wiki/claims/노드A.md")
+        self.assertEqual(finding["target"], "D1")
+        self.assertTrue(data["clean"])
+
+    def test_a_typo_still_reads_as_open_not_as_superseded(self):
+        # the §1 guarantee that an unrecognized status can never retire a
+        # decision survives the enum gaining a third member
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 오타 | supersded |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["decisions"]["superseded"], [])
+
+    def test_duplicate_decision_id_is_reported(self):
+        # the ID-reuse signal: D1 was retired, its row deleted, and a new
+        # decision took the name — every legacy `serves: D1` now points at
+        # something it was never about
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 원래 결정 | superseded |", "| D1 | 재사용 | open |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["counts"]["duplicate_decision_id"], 1)
+        self.assertEqual(data["findings"]["duplicate_decision_id"][0]["id"], "D1")
+        self.assertTrue(data["clean"])
+
+    def test_duplicate_id_keeps_only_its_first_row_and_is_counted_once(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 첫 행 | open |", "| D1 | 둘째 행 | settled |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["declared"], 1)
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["decisions"]["settled"], [])
+
+    def test_distinct_ids_are_not_duplicates(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 하나 | open |", "| D2 | 둘 | settled |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
+        self.assertEqual(self.lint()["counts"]["duplicate_decision_id"], 0)
 
 
 class ConditionalRecommendationTest(unittest.TestCase):

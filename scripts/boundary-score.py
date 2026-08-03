@@ -38,6 +38,7 @@ Usage:
   boundary-score.py --page PATH             # score for a single page
   boundary-score.py --serves D1             # frontier inside one declared decision
   boundary-score.py --include-score-zero    # include pages with score=0
+  boundary-score.py --include-terminal      # include deprecated/pruned pages
 
 Exit codes:
   0  success
@@ -54,6 +55,12 @@ from pathlib import Path
 
 SCOPE_ROOT = Path.cwd()  # the research-scope root
 WIKI_DIR = SCOPE_ROOT / "wiki"
+
+# §3 statuses whose nodes have left the graph. They stay *scoreable* (a live
+# node's link to one is still a real out-edge) but they leave the ranking:
+# a prune bumps `updated`, so a just-cut branch would otherwise sit at
+# recency_weight 1.0 — the top of the frontier the cut removed it from.
+TERMINAL_STATUSES = frozenset({"deprecated", "pruned"})
 
 # Aligned with EVOLUTION.md §1 (anatomy) and §2 (type enum). The protocol's
 # only non-evolving aux files are index/hot/log/overview and the meta/ tree.
@@ -348,7 +355,7 @@ def score_page(title_key: str,
 
 
 def run(top: int, want_json: bool, include_zero: bool, page_filter: str | None,
-        serves_filter: str | None = None) -> int:
+        serves_filter: str | None = None, include_terminal: bool = False) -> int:
     if not WIKI_DIR.is_dir():
         log(f"ERR: no wiki/ directory under {SCOPE_ROOT} — run from a research-scope root")
         return EXIT_USAGE
@@ -363,13 +370,19 @@ def run(top: int, want_json: bool, include_zero: bool, page_filter: str | None,
         # specific page and so is a usage error when absent.
         scored = [s for s in scored if serves_filter in s["serves"]]
     if page_filter:
+        # An explicit page name outranks the ranking filters: `--page` asks
+        # "what does this page score", which stays a fair question for a
+        # deprecated or pruned node an auditor is looking up.
         key = Path(page_filter).stem
         matched = [s for s in scored if s["title_key"] == key or s["path"] == page_filter]
         if not matched:
-            log(f"ERR: no scoreable page matches '{page_filter}'")
+            scoped = f" inside decision {serves_filter}" if serves_filter else ""
+            log(f"ERR: no scoreable page matches '{page_filter}'{scoped}")
             return EXIT_USAGE
         scored = matched
     else:
+        if not include_terminal:
+            scored = [s for s in scored if s["status"] not in TERMINAL_STATUSES]
         if not include_zero:
             scored = [s for s in scored if s["score"] > 0.0]
         scored.sort(key=lambda s: (-s["score"], s["title_key"]))
@@ -381,6 +394,7 @@ def run(top: int, want_json: bool, include_zero: bool, page_filter: str | None,
             "halflife_days": RECENCY_HALFLIFE_DAYS,
             "page_count_scoreable": len(pages),
             "serves_filter": serves_filter,
+            "terminal_excluded": not include_terminal and not page_filter,
             "results": scored,
         }, indent=2, ensure_ascii=False))
     else:
@@ -410,11 +424,15 @@ def main(argv: list[str]) -> int:
     p.add_argument("--serves", default=None, metavar="DECISION_ID",
                    help="Keep only pages whose `serves:` names this declared "
                         "decision (e.g. D1) — the frontier inside one decision")
+    p.add_argument("--include-terminal", action="store_true",
+                   help="Include deprecated/pruned pages, which the frontier "
+                        "excludes by default (§3: they have left the graph)")
     args = p.parse_args(argv)
     if args.top < 1:
         log("ERR: --top must be >= 1")
         return EXIT_USAGE
-    return run(args.top, args.json, args.include_score_zero, args.page, args.serves)
+    return run(args.top, args.json, args.include_score_zero, args.page,
+               args.serves, args.include_terminal)
 
 
 if __name__ == "__main__":
