@@ -38,10 +38,19 @@ Checks (EVOLUTION.md §4 Phase E.3):
      like `origin`, the enum is validated on any page where the key
      appears), and mashup `borrowed:` snapshots must carry
      node/scope/status_at_mint/gen_at_mint/date.
+  9. goal binding (§10, §2) — the scope CLAUDE.md declares the decisions it
+     exists to settle (`| D1 | … | open |` rows under a `Goal & Open Decisions`
+     heading) and evolving nodes bind to them via `serves:`. Reported as
+     `no_decisions_declared` (only once evolving nodes exist),
+     `unknown_serves_target`, and `unassigned_claims` — the queue the pruning
+     sweep works from. All warnings; the binding is optional so every
+     pre-1.0.0 node stays valid with no migration.
 
 `clean` = the five checks all count zero (`unresolved_external`,
-`allowed_external`, `legacy_question_status`, `census_drift`, and
-`eval_findings` are warnings and excluded).
+`allowed_external`, `legacy_question_status`, `census_drift`,
+`eval_findings`, `forward_looking_in_node_body`,
+`experiment_missing_decision_at_stake`, `no_decisions_declared`,
+`unknown_serves_target`, and `unassigned_claims` are warnings and excluded).
 
 Usage:
   wiki-lint.py            # human-readable text
@@ -96,7 +105,17 @@ VALID_ENUMS = {
         "experiment",
         "deliverable",
     },
-    "status": {"seed", "developing", "hardened", "evergreen", "deprecated"},
+    "status": {
+        "seed",
+        "developing",
+        "hardened",
+        "evergreen",
+        "deprecated",
+        # 1.0.0 — cut for serving no open decision, NOT for collapsing under
+        # refutation (§3). Distinct from `deprecated` on purpose: the loop steers
+        # on the difference between "was wrong" and "did not matter".
+        "pruned",
+    },
     "confidence": {"high", "medium", "low"},
     "origin": {"primary", "secondary"},
     # §2/§3 class-calibrated gates (0.14.0). Optional — absence = literature
@@ -115,7 +134,18 @@ BORROWED_KEYS = ("node", "scope", "status_at_mint", "gen_at_mint", "date")
 DATE_KEYS = ("created", "updated", "last_challenged")
 INT_KEYS = ("generation", "challenges_survived")
 # §3 maturity ladder, in census display order (claims + mashups only).
-MATURITY_STATUSES = ("seed", "developing", "hardened", "evergreen", "deprecated")
+MATURITY_STATUSES = (
+    "seed",
+    "developing",
+    "hardened",
+    "evergreen",
+    "deprecated",
+    "pruned",
+)
+# Statuses whose nodes have left the graph (§3): exempt from the orphan check
+# and from node-body hygiene, since nothing is expected to link them and their
+# bodies are frozen records.
+TERMINAL_STATUSES = {"deprecated", "pruned"}
 # §7 stagnation verdict enum (eval schema v2).
 STAGNATION_VERDICTS = {"continue", "reseed", "change-strategy"}
 
@@ -134,7 +164,7 @@ FENCE_RE = re.compile(r"^(\s*)(`{3,}|~{3,})")
 CENSUS_LINE_RE = re.compile(r"^\s*\*\*Census:\*\*(.*)$", re.MULTILINE)
 CENSUS_TOTAL_RE = re.compile(r"(\d+)\s*nodes?")
 CENSUS_PAIR_RE = re.compile(
-    r"\b(seed|developing|hardened|evergreen|deprecated)\s+(\d+)"
+    r"\b(seed|developing|hardened|evergreen|deprecated|pruned)\s+(\d+)"
 )
 SESSION_REPORT_RE = re.compile(r"^(E\d+)\.md$")
 SESSION_EVAL_RE = re.compile(r"^(E\d+)\.eval\.json$")
@@ -429,8 +459,8 @@ def check_orphans(node_pages: list[dict]) -> list[str]:
     for page in node_pages:
         if page["kind"] not in EVOLVING_DIRS:
             continue
-        if (page["fm"] or {}).get("status") == "deprecated":
-            continue  # deprecated nodes leave the graph by design (§3)
+        if (page["fm"] or {}).get("status") in TERMINAL_STATUSES:
+            continue  # deprecated/pruned nodes leave the graph by design (§3)
         if inbound[page["stem"]] == 0:
             orphans.append(page["path"])
     return sorted(orphans)
@@ -459,7 +489,7 @@ def check_forward_looking(node_pages: list[dict]) -> list[dict]:
     for page in node_pages:
         if page["kind"] not in EVOLVING_DIRS:
             continue
-        if (page["fm"] or {}).get("status") == "deprecated":
+        if (page["fm"] or {}).get("status") in TERMINAL_STATUSES:
             continue
         for lineno, line in enumerate((page.get("body") or "").splitlines(), 1):
             match = FORWARD_LOOKING_RE.search(QUOTED_SPAN_RE.sub("", line))
@@ -634,6 +664,122 @@ def load_external_allowlist() -> set[str]:
     return entries
 
 
+# §10 goal/decision block: `| D1 | <decision> | open |` rows under a
+# `Goal & Open Decisions` heading in the scope CLAUDE.md. Optional section
+# numbering ("### 1.1 Goal & Open Decisions") is tolerated.
+DECISION_HEADING_RE = re.compile(
+    r"^#{1,6}\s*(?:[\d.\s]*)?Goal\s*&\s*Open\s+Decisions\s*$", re.IGNORECASE
+)
+DECISION_ROW_RE = re.compile(r"^\|\s*(D\d+)\s*\|[^|]*\|\s*([A-Za-z][A-Za-z-]*)\s*\|\s*$")
+ANY_HEADING_RE = re.compile(r"^#{1,6}\s")
+SETTLED_DECISION = "settled"
+
+
+def load_declared_decisions() -> dict:
+    """The decisions this scope exists to settle, from the scope CLAUDE.md (§10).
+
+    Rows live under a `Goal & Open Decisions` heading; parsing stops at the next
+    heading, so a D-shaped table row in a later section cannot leak in. The table
+    header and separator rows never match (the first cell must be `D<digits>`).
+
+    A row whose status is neither `open` nor `settled` counts as **open** — the
+    conservative reading, because an unrecognized status must never silently
+    retire a decision, which would in turn let a node be pruned against a
+    decision nobody closed.
+
+    Returns `{"declared": N, "open": [...], "settled": [...]}`; an absent block
+    (or absent CLAUDE.md) yields zero declared decisions, and every `serves:`
+    check below then stays quiet — a scope that has not declared its goal yet is
+    not in violation, it is unconfigured (§10).
+    """
+    empty: dict = {"declared": 0, "open": [], "settled": []}
+    claude_md = SCOPE_ROOT / "CLAUDE.md"
+    if not claude_md.is_file():
+        return empty
+    try:
+        lines = claude_md.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return empty
+    start = next(
+        (i for i, line in enumerate(lines) if DECISION_HEADING_RE.match(line)), None
+    )
+    if start is None:
+        return empty
+    open_ids: list[str] = []
+    settled_ids: list[str] = []
+    for line in lines[start + 1 :]:
+        if ANY_HEADING_RE.match(line):
+            break
+        m = DECISION_ROW_RE.match(line.strip())
+        if not m:
+            continue
+        did, status = m.group(1), m.group(2).lower()
+        bucket = settled_ids if status == SETTLED_DECISION else open_ids
+        if did not in bucket:
+            bucket.append(did)
+    return {
+        "declared": len(open_ids) + len(settled_ids),
+        "open": open_ids,
+        "settled": settled_ids,
+    }
+
+
+def parse_list_entries(val) -> list[str]:
+    """Entries of a frontmatter list value — inline (`k: ["a", "b"]`) or block
+    (`- a` lines, already a list from parse_frontmatter)."""
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return [str(v).strip().strip("\"'") for v in val if str(v).strip()]
+    s = str(val).strip()
+    if s in ("", "[]"):
+        return []
+    if s.startswith("[") and s.endswith("]"):
+        s = s[1:-1]
+    return [p.strip().strip("\"'") for p in s.split(",") if p.strip().strip("\"'")]
+
+
+def check_serves(pages: list[dict], decisions: dict) -> tuple[list[dict], list[str]]:
+    """§2 `serves:` — the declared decision(s) a node bears on.
+
+    Two warnings, both quiet until the scope declares decisions (§10):
+      * `unknown_serves_target` — a `serves:` entry naming no declared decision,
+        i.e. a node bound to a decision that was renamed or never existed.
+      * `unassigned_claims` — an evolving node with no `serves:` at all. Not an
+        error (the key is optional, so every legacy node stays valid) but it is
+        the queue the pruning sweep works from: an unassigned node is one the
+        loop cannot tell is worth verifying.
+
+    Terminal nodes (`deprecated`/`pruned`) are exempt — they already left.
+    """
+    if decisions["declared"] == 0:
+        return [], []
+    known = set(decisions["open"]) | set(decisions["settled"])
+    unknown: list[dict] = []
+    unassigned: list[str] = []
+    for page in pages:
+        if page["kind"] not in EVOLVING_DIRS:
+            continue
+        fm = page["fm"] or {}
+        if fm.get("status") in TERMINAL_STATUSES:
+            continue
+        entries = parse_list_entries(fm.get("serves"))
+        if not entries:
+            unassigned.append(page["path"])
+            continue
+        for entry in entries:
+            if entry not in known:
+                unknown.append(
+                    {
+                        "path": page["path"],
+                        "target": entry,
+                        "hint": "names no decision declared in the scope CLAUDE.md "
+                        "`Goal & Open Decisions` block (§10)",
+                    }
+                )
+    return unknown, sorted(unassigned)
+
+
 def check_eval() -> list[dict]:
     """Validate the LATEST session's `E####.eval.json` against §7 schema v2:
     `pass` must be a boolean and `stagnation.verdict` one of the fixed enum.
@@ -711,6 +857,23 @@ def run(want_json: bool) -> int:
     status_census = compute_status_census(node_pages)
     census_drift = check_census_drift(status_census)
     eval_findings = check_eval()
+    decisions = load_declared_decisions()
+    unknown_serves, unassigned_claims = check_serves(node_pages, decisions)
+    # an undeclared goal only matters once there is something to steer (§10);
+    # a freshly scaffolded, empty scope stays quiet
+    no_decisions = (
+        [
+            {
+                "path": "CLAUDE.md",
+                "issue": "no `Goal & Open Decisions` block while evolving nodes "
+                "exist — nothing declares what the scope is steering toward (§10)",
+                "hint": "add `| D1 | <the decision to settle> | open |` rows under a "
+                "`### Goal & Open Decisions` heading",
+            }
+        ]
+        if decisions["declared"] == 0 and status_census["total"] > 0
+        else []
+    )
 
     counts = {
         "pages_checked": len(node_pages),
@@ -726,6 +889,9 @@ def run(want_json: bool) -> int:
         "eval_findings": len(eval_findings),
         "forward_looking_in_node_body": len(forward_looking),
         "experiment_missing_decision_at_stake": len(no_decision),
+        "no_decisions_declared": len(no_decisions),
+        "unknown_serves_target": len(unknown_serves),
+        "unassigned_claims": len(unassigned_claims),
     }
     clean = all(
         counts[k] == 0
@@ -745,6 +911,7 @@ def run(want_json: bool) -> int:
         "counts": counts,
         "clean": clean,
         "status_census": status_census,
+        "decisions": decisions,
         "findings": {
             "missing_frontmatter": fm_findings,
             "dead_wikilinks": dead,
@@ -758,6 +925,9 @@ def run(want_json: bool) -> int:
             "eval_findings": eval_findings,
             "forward_looking_in_node_body": forward_looking,
             "experiment_missing_decision_at_stake": no_decision,
+            "no_decisions_declared": no_decisions,
+            "unknown_serves_target": unknown_serves,
+            "unassigned_claims": unassigned_claims,
         },
     }
 
@@ -770,6 +940,10 @@ def run(want_json: bool) -> int:
     print(f"pages checked: {counts['pages_checked']} · clean: {clean}")
     census_parts = " · ".join(f"{s} {status_census[s]}" for s in MATURITY_STATUSES)
     print(f"status census: {status_census['total']} nodes · {census_parts}")
+    print(
+        f"decisions declared: {decisions['declared']} "
+        f"(open: {', '.join(decisions['open']) or '—'})"
+    )
     for label, items in (
         ("missing/invalid frontmatter", fm_findings),
         ("dead wikilinks", dead),
@@ -788,6 +962,12 @@ def run(want_json: bool) -> int:
         (
             "live experiments without `## Decision at stake` (warning — §12 gate)",
             no_decision,
+        ),
+        ("no declared decisions (warning — §10 goal block)", no_decisions),
+        ("serves: naming an undeclared decision (warning — §2)", unknown_serves),
+        (
+            "claims not bound to any decision (warning — §2 serves:, the prune queue)",
+            unassigned_claims,
         ),
     ):
         print(f"\n## {label}: {len(items)}")

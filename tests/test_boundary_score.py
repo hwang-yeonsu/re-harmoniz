@@ -192,5 +192,86 @@ class BoundaryScoreTest(unittest.TestCase):
         self.assertEqual(bare["sources_count"], 0)
 
 
+class ServesFilterTest(unittest.TestCase):
+    """§4 Phase B (1.0.0): the frontier is asked *within a decision*. The score
+    formula is unchanged — relevance enters as a filter, not as a weight, so a
+    node that tops the frontier while serving nothing cannot steal the session."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.today = date.today().isoformat()
+
+    def _scope_with_three_nodes(self):
+        # each points outward at the same two sinks → positive score for all three
+        for stem, serves in (
+            ("결정1노드", 'serves: ["D1"]'),
+            ("결정2노드", 'serves: ["D2"]'),
+            ("양쪽노드", "serves:\n  - D1\n  - D2"),
+        ):
+            write_node(
+                self.scope,
+                f"wiki/claims/{stem}.md",
+                title=stem,
+                updated=self.today,
+                body="[[싱크A]] [[싱크B]]",
+                extra_fm=serves,
+            )
+        write_node(
+            self.scope, "wiki/claims/미배정노드.md", title="unassigned",
+            updated=self.today, body="[[싱크A]] [[싱크B]]",
+        )
+        for sink in ("싱크A", "싱크B"):
+            write_node(
+                self.scope, f"wiki/claims/{sink}.md", title=sink, updated=self.today
+            )
+
+    def _rows(self, *args: str) -> list[dict]:
+        proc = run_script(self.scope, "--json", "--top", "20", *args)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)["results"]
+
+    def test_json_row_exposes_serves(self):
+        self._scope_with_three_nodes()
+        by_key = {r["title_key"]: r for r in self._rows()}
+        self.assertEqual(by_key["결정1노드"]["serves"], ["D1"])
+        self.assertEqual(by_key["양쪽노드"]["serves"], ["D1", "D2"])
+        self.assertEqual(by_key["미배정노드"]["serves"], [])
+
+    def test_serves_filter_keeps_only_nodes_serving_that_decision(self):
+        self._scope_with_three_nodes()
+        keys = sorted(r["title_key"] for r in self._rows("--serves", "D1"))
+        self.assertEqual(keys, ["결정1노드", "양쪽노드"])
+
+    def test_serves_filter_excludes_unassigned_nodes(self):
+        self._scope_with_three_nodes()
+        keys = [r["title_key"] for r in self._rows("--serves", "D2")]
+        self.assertNotIn("미배정노드", keys)
+        self.assertEqual(sorted(keys), ["결정2노드", "양쪽노드"])
+
+    def test_unknown_decision_yields_an_empty_frontier_not_an_error(self):
+        # unlike --page (which names one page), a filter matching nothing is a
+        # legitimate answer: "no frontier inside this decision"
+        self._scope_with_three_nodes()
+        proc = run_script(self.scope, "--json", "--serves", "D9")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout)["results"], [])
+
+    def test_filter_does_not_change_the_score_of_the_nodes_it_keeps(self):
+        self._scope_with_three_nodes()
+        unfiltered = {r["title_key"]: r["score"] for r in self._rows()}
+        filtered = {r["title_key"]: r["score"] for r in self._rows("--serves", "D1")}
+        for key, score in filtered.items():
+            self.assertEqual(score, unfiltered[key])
+
+    def test_text_output_reports_the_active_decision_filter(self):
+        self._scope_with_three_nodes()
+        proc = run_script(self.scope, "--serves", "D1")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("D1", proc.stdout)
+        self.assertNotIn("결정2노드", proc.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

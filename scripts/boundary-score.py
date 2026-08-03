@@ -36,6 +36,7 @@ Usage:
   boundary-score.py --top N                 # top N frontier
   boundary-score.py --json                  # JSON output
   boundary-score.py --page PATH             # score for a single page
+  boundary-score.py --serves D1             # frontier inside one declared decision
   boundary-score.py --include-score-zero    # include pages with score=0
 
 Exit codes:
@@ -90,6 +91,10 @@ CHALLENGES_RE = re.compile(r"^challenges_survived:\s*(\d+)", re.MULTILINE)
 # [ \t]* not \s* — \s would swallow the newline and misread a block list's
 # first `- item` line as an inline value.
 SOURCES_KEY_RE = re.compile(r"^sources:[ \t]*(.*)$", re.MULTILINE)
+# §2 `serves:` — the declared decision(s) a node bears on (§10). Exposed per row
+# and usable as a filter, so Phase B can ask for the frontier *inside* one
+# decision instead of across the whole scope.
+SERVES_KEY_RE = re.compile(r"^serves:[ \t]*(.*)$", re.MULTILINE)
 # Wikilinks: [[Target]] or [[Target|Alias]] or [[Target#Heading]]
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 
@@ -126,6 +131,36 @@ def count_sources(fm_raw: str) -> int:
     return count
 
 
+def parse_list_key(fm_raw: str, key_re: re.Pattern) -> list[str]:
+    """Values under a frontmatter list key — inline (`k: ["a", "b"]`) or block
+    (`- a` lines). Same shape handling as count_sources, but returns the entries."""
+    m = key_re.search(fm_raw)
+    if not m:
+        return []
+    inline = m.group(1).strip()
+    if inline:
+        if inline.startswith("["):
+            inner = inline.strip("[]").strip()
+            if not inner:
+                return []
+            return [
+                p.strip().strip("\"'")
+                for p in inner.split(",")
+                if p.strip().strip("\"'")
+            ]
+        return [inline.strip("\"'")]
+    entries: list[str] = []
+    for line in fm_raw[m.end():].splitlines():
+        dm = re.match(r"^\s*-\s+(\S.*)$", line)
+        if dm:
+            entries.append(dm.group(1).strip().strip("\"'"))
+        elif line.strip() == "":
+            continue
+        else:
+            break
+    return entries
+
+
 def parse_frontmatter(text: str) -> tuple[dict, str]:
     m = FRONTMATTER_RE.match(text)
     if not m:
@@ -145,6 +180,7 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
         if tm:
             fm[key] = int(tm.group(1))
     fm["sources_count"] = count_sources(fm_raw)
+    fm["serves"] = parse_list_key(fm_raw, SERVES_KEY_RE)
     return fm, body
 
 
@@ -306,16 +342,26 @@ def score_page(title_key: str,
         "generation": fm.get("generation"),
         "challenges_survived": fm.get("challenges_survived"),
         "sources_count": fm.get("sources_count", 0),
+        # §2 goal binding: which declared decision(s) this node bears on
+        "serves": fm.get("serves", []),
     }
 
 
-def run(top: int, want_json: bool, include_zero: bool, page_filter: str | None) -> int:
+def run(top: int, want_json: bool, include_zero: bool, page_filter: str | None,
+        serves_filter: str | None = None) -> int:
     if not WIKI_DIR.is_dir():
         log(f"ERR: no wiki/ directory under {SCOPE_ROOT} — run from a research-scope root")
         return EXIT_USAGE
     pages = collect_pages()
     out_edges, in_edges = build_graph(pages)
     scored = [score_page(k, pages, out_edges, in_edges) for k in pages]
+    if serves_filter:
+        # Relevance is a FILTER, not a weight: scores stay exactly what they were,
+        # so "frontier inside decision D1" and "frontier overall" rank the same
+        # pages the same way. A filter that matches nothing is a legitimate answer
+        # ("no frontier inside this decision"), unlike --page, which names one
+        # specific page and so is a usage error when absent.
+        scored = [s for s in scored if serves_filter in s["serves"]]
     if page_filter:
         key = Path(page_filter).stem
         matched = [s for s in scored if s["title_key"] == key or s["path"] == page_filter]
@@ -334,11 +380,14 @@ def run(top: int, want_json: bool, include_zero: bool, page_filter: str | None) 
             "generated": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
             "halflife_days": RECENCY_HALFLIFE_DAYS,
             "page_count_scoreable": len(pages),
+            "serves_filter": serves_filter,
             "results": scored,
-        }, indent=2))
+        }, indent=2, ensure_ascii=False))
     else:
         print("# Boundary Score Report")
         print(f"scoreable pages: {len(pages)}; halflife: {RECENCY_HALFLIFE_DAYS} days")
+        if serves_filter:
+            print(f"decision filter: serves {serves_filter}")
         if not scored:
             print("\nNo positive-score frontier pages found.")
         else:
@@ -358,11 +407,14 @@ def main(argv: list[str]) -> int:
     p.add_argument("--include-score-zero", action="store_true",
                    help="Include pages whose score is zero or negative in the output")
     p.add_argument("--page", default=None, help="Score a single page by path or stem")
+    p.add_argument("--serves", default=None, metavar="DECISION_ID",
+                   help="Keep only pages whose `serves:` names this declared "
+                        "decision (e.g. D1) — the frontier inside one decision")
     args = p.parse_args(argv)
     if args.top < 1:
         log("ERR: --top must be >= 1")
         return EXIT_USAGE
-    return run(args.top, args.json, args.include_score_zero, args.page)
+    return run(args.top, args.json, args.include_score_zero, args.page, args.serves)
 
 
 if __name__ == "__main__":

@@ -345,7 +345,7 @@ class WikiLintTest(unittest.TestCase):
         )
         statuses.append("developing")  # the mashup counts too
         expected = {"total": len(statuses)}
-        for s in ("seed", "developing", "hardened", "evergreen", "deprecated"):
+        for s in ("seed", "developing", "hardened", "evergreen", "deprecated", "pruned"):
             expected[s] = statuses.count(s)
         return expected
 
@@ -387,8 +387,8 @@ class WikiLintTest(unittest.TestCase):
         line = (
             f"**Census:** {expected['total']} nodes · seed {expected['seed']} · "
             f"developing {expected['developing']} · hardened {expected['hardened']} · "
-            f"evergreen {expected['evergreen']} · deprecated {expected['deprecated']} "
-            "(2026-06-12)"
+            f"evergreen {expected['evergreen']} · deprecated {expected['deprecated']} · "
+            f"pruned {expected['pruned']} (2026-06-12)"
         )
         write(self.scope, "wiki/index.md", f"# Index\n\n{line}\n")
         data = self.lint()
@@ -415,6 +415,7 @@ class WikiLintTest(unittest.TestCase):
                 "hardened": 0,
                 "evergreen": 0,
                 "deprecated": 0,
+                "pruned": 0,
             },
         )
         self.assertEqual(data["counts"]["census_drift"], 0)
@@ -1038,6 +1039,332 @@ class DecisionAtStakeTest(unittest.TestCase):
         data = self.lint()
         self.assertEqual(len(data["findings"]["experiment_missing_decision_at_stake"]), 1)
         self.assertTrue(data["clean"])
+
+
+# ---- §10 declared decisions + §2 `serves:` — the pruning baseline (1.0.0) ----
+
+
+def scope_claude_md(*rows: str, goal: str = "목표 한 줄", heading: bool = True) -> str:
+    """A scope CLAUDE.md, optionally declaring the §10 goal/decision block.
+
+    `rows` are table rows like `| D1 | … | open |`. `heading=False` writes a
+    CLAUDE.md with no decision block at all (the pre-1.0.0 shape).
+    """
+    head = "# Research_X — Research Scope\n\n## 1. Purpose & Boundaries\n\n한 단락.\n\n"
+    tail = "## 2. Metadata\n\n- Code workspace path(s): `/tmp/ws`\n"
+    if not heading:
+        return head + tail
+    block = (
+        "### Goal & Open Decisions\n\n"
+        f"**Goal:** {goal}\n\n"
+        "| ID | Decision to settle | Status |\n"
+        "|---|---|---|\n" + "".join(f"{r}\n" for r in rows) + "\n"
+    )
+    return head + block + tail
+
+
+class DeclaredDecisionsTest(unittest.TestCase):
+    """§10: the scope declares the decisions it exists to settle; §2 `serves:`
+    binds a node to them. Without that binding there is no relevance signal to
+    prune against — every finding here is a warning, so `clean` is untouched."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _pair(self, *, a_fm="", b_fm=""):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[노드B]]", extra_fm=a_fm),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드B.md",
+            node_text(title="B", body="[[노드A]]", extra_fm=b_fm),
+        )
+
+    def test_declared_decisions_are_parsed_and_split_by_status(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md(
+                "| D1 | 8-bit로 32-bit를 대체할 수 있는가 | open |",
+                "| D2 | 이미 정해진 것 | settled |",
+            ),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
+        data = self.lint()
+        self.assertEqual(
+            data["decisions"], {"declared": 2, "open": ["D1"], "settled": ["D2"]}
+        )
+
+    def test_table_header_and_separator_rows_are_not_decisions(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 하나 | open |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        self.assertEqual(self.lint()["decisions"]["declared"], 1)
+
+    def test_rows_after_the_block_ends_are_not_decisions(self):
+        # a D-shaped row in a LATER section must not leak into the decision set
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 하나 | open |")
+            + "\n## 5. Seed Source Candidates\n\n| D9 | 시드 표의 오해 | open |\n",
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+
+    def test_unrecognized_decision_status_counts_as_open(self):
+        # conservative on purpose: an unrecognized status must never silently
+        # retire a decision, because that would let a node be pruned against a
+        # decision nobody actually closed
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 오타 상태 | opne |", "| D2 | 닫힘 | settled |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["decisions"]["settled"], ["D2"])
+
+    def test_missing_decision_block_is_reported_when_nodes_exist(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md(heading=False))
+        self._pair()
+        data = self.lint()
+        self.assertEqual(data["counts"]["no_decisions_declared"], 1)
+        self.assertEqual(data["decisions"]["declared"], 0)
+        self.assertTrue(data["clean"])
+
+    def test_missing_decision_block_is_quiet_on_an_empty_scope(self):
+        (self.scope / "wiki" / "claims").mkdir(parents=True)
+        data = self.lint()
+        self.assertEqual(data["counts"]["no_decisions_declared"], 0)
+
+    def test_serves_resolving_to_a_declared_decision_is_quiet(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 하나 | open |", "| D2 | 둘 | open |"),
+        )
+        self._pair(a_fm='serves: ["D1", "D2"]', b_fm='serves: ["D2"]')
+        data = self.lint()
+        self.assertEqual(data["counts"]["unknown_serves_target"], 0)
+        self.assertEqual(data["counts"]["unassigned_claims"], 0)
+
+    def test_serves_naming_an_undeclared_decision_is_reported(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 하나 | open |"))
+        self._pair(a_fm='serves: ["D1", "D9"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["counts"]["unknown_serves_target"], 1)
+        finding = data["findings"]["unknown_serves_target"][0]
+        self.assertEqual(finding["path"], "wiki/claims/노드A.md")
+        self.assertEqual(finding["target"], "D9")
+        self.assertTrue(data["clean"])
+
+    def test_serves_block_list_form_parses(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 하나 | open |", "| D2 | 둘 | open |"),
+        )
+        self._pair(a_fm="serves:\n  - D1\n  - D2", b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["counts"]["unknown_serves_target"], 0)
+        self.assertEqual(data["counts"]["unassigned_claims"], 0)
+
+    def test_unassigned_claim_is_counted_when_decisions_are_declared(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 하나 | open |"))
+        self._pair(a_fm='serves: ["D1"]')  # 노드B carries no serves:
+        data = self.lint()
+        self.assertEqual(data["counts"]["unassigned_claims"], 1)
+        self.assertEqual(
+            data["findings"]["unassigned_claims"], ["wiki/claims/노드B.md"]
+        )
+        self.assertTrue(data["clean"])
+
+    def test_empty_serves_list_counts_as_unassigned(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 하나 | open |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm="serves: []")
+        self.assertEqual(self.lint()["counts"]["unassigned_claims"], 1)
+
+    def test_unassigned_is_not_counted_without_declared_decisions(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md(heading=False))
+        self._pair()
+        data = self.lint()
+        self.assertEqual(data["counts"]["unassigned_claims"], 0)
+        self.assertEqual(data["counts"]["unknown_serves_target"], 0)
+
+    def test_terminal_nodes_are_exempt_from_unassigned(self):
+        # deprecated (collapsed) and pruned (goal-irrelevant) have left the graph
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 하나 | open |"))
+        write(
+            self.scope,
+            "wiki/claims/살아있는노드.md",
+            node_text(title="live", body="[[버려진노드]] [[잘린노드]]", extra_fm='serves: ["D1"]'),
+        )
+        write(
+            self.scope,
+            "wiki/claims/버려진노드.md",
+            node_text(title="dep", status="deprecated", body="[[살아있는노드]]"),
+        )
+        write(
+            self.scope,
+            "wiki/claims/잘린노드.md",
+            node_text(title="pruned", status="pruned", body="[[살아있는노드]]"),
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["unassigned_claims"], 0)
+
+    def test_sources_and_questions_are_never_unassigned(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 하나 | open |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        write(
+            self.scope, "wiki/sources/출처.md", '---\ntype: source\ntitle: "s"\n---\n'
+        )
+        write(
+            self.scope,
+            "wiki/questions/질문.md",
+            '---\ntype: question\ntitle: "q"\nstatus: open\n---\n',
+        )
+        self.assertEqual(self.lint()["counts"]["unassigned_claims"], 0)
+
+    def test_no_claude_md_at_all_is_quiet_about_serves(self):
+        self._pair()
+        data = self.lint()
+        self.assertEqual(data["decisions"]["declared"], 0)
+        self.assertEqual(data["counts"]["unassigned_claims"], 0)
+        self.assertTrue(data["clean"])
+
+
+class PrunedStatusTest(unittest.TestCase):
+    """§3: `pruned` is a terminal status distinct from `deprecated` — the node
+    was cut for serving no open decision, NOT for collapsing under refutation.
+    Conflating the two would erase the signal the loop steers on."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_pruned_is_a_valid_claim_status(self):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", status="pruned", body="[[노드B]]"),
+        )
+        write(
+            self.scope, "wiki/claims/노드B.md", node_text(title="B", body="[[노드A]]")
+        )
+        data = self.lint()
+        self.assertEqual(data["findings"]["missing_frontmatter"], [])
+        self.assertTrue(data["clean"])
+
+    def test_pruned_node_is_orphan_exempt(self):
+        # nothing links to it, exactly as with deprecated (§3: it left the graph)
+        write(
+            self.scope,
+            "wiki/claims/잘린노드.md",
+            node_text(title="p", status="pruned", body="본문."),
+        )
+        data = self.lint()
+        self.assertEqual(data["findings"]["orphans"], [])
+        self.assertTrue(data["clean"])
+
+    def test_pruned_node_is_forward_looking_exempt(self):
+        write(
+            self.scope,
+            "wiki/claims/잘린노드.md",
+            node_text(
+                title="p", status="pruned", body="다음 단계는 이걸 다시 보는 것."
+            ),
+        )
+        self.assertEqual(
+            self.lint()["findings"]["forward_looking_in_node_body"], []
+        )
+
+    def test_census_counts_pruned_separately_from_deprecated(self):
+        for stem, status in (
+            ("살아있는노드", "seed"),
+            ("버려진노드", "deprecated"),
+            ("잘린노드", "pruned"),
+        ):
+            write(
+                self.scope,
+                f"wiki/claims/{stem}.md",
+                node_text(title=stem, status=status, body="[[살아있는노드]]"),
+            )
+        census = self.lint()["status_census"]
+        self.assertEqual(census["total"], 3)
+        self.assertEqual(census["deprecated"], 1)
+        self.assertEqual(census["pruned"], 1)
+        self.assertEqual(census["seed"], 1)
+
+    def test_pruned_is_rejected_on_an_experiment_node(self):
+        # experiments keep their own lifecycle (§2) — `pruned` is a maturity value
+        write(
+            self.scope,
+            "wiki/experiments/실험.md",
+            experiment_text(status="pruned", claim="[[노드A]]"),
+        )
+        data = self.lint()
+        self.assertEqual(len(data["findings"]["missing_frontmatter"]), 1)
+        self.assertEqual(
+            data["findings"]["missing_frontmatter"][0]["invalid"]["status"], "pruned"
+        )
+
+
+class ConditionalRecommendationTest(unittest.TestCase):
+    """§2 node-body hygiene bans *expiring plans*, not engineering conclusions.
+    A recommendation bound to a condition is an assertion — gradeable by the
+    §5 refuters — and must survive the linter."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _claim(self, body: str):
+        write(self.scope, "wiki/claims/노드A.md", node_text(title="A", body=body))
+
+    def test_conditional_recommendation_is_not_flagged(self):
+        self._claim(
+            "65B 이하 규모에서는 8-bit Adam을 선택한다. 그 위에서는 32-bit를 유지한다."
+        )
+        self.assertEqual(
+            self.lint()["findings"]["forward_looking_in_node_body"], []
+        )
+
+    def test_english_conditional_recommendation_is_not_flagged(self):
+        self._claim("Prefer 8-bit Adam when the model is at or below 65B.")
+        self.assertEqual(
+            self.lint()["findings"]["forward_looking_in_node_body"], []
+        )
+
+    def test_bare_plan_is_still_flagged(self):
+        # the falsifiable counterpart: remove the rule and THIS test fails
+        self._claim("다음 단계는 65B 초과 구간을 측정하는 것.")
+        findings = self.lint()["findings"]["forward_looking_in_node_body"]
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["match"], "다음 단계")
 
 
 if __name__ == "__main__":
