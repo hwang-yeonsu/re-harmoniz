@@ -152,7 +152,9 @@ borrowed:
     date: 2026-07-02
 ```
 
-Phase A (§4) compares each donor's **current** status/generation against this snapshot; drift (demotion, deprecation, or a conclusion-changing revision) is a **new objection** on the mashup — the borrowed premise moved under it. `wiki-lint.py` validates the subkeys.
+Phase A (§4) compares each donor's **current** status/generation against this snapshot; drift (demotion, deprecation, a prune, or a conclusion-changing revision) is a **new objection** on the mashup — the borrowed premise moved under it. A `pruned` donor is drift of a particular kind: it was not refuted, it stopped mattering to *its own* scope (§3), so what the objection records is that nobody maintains or re-verifies that premise any more.
+
+**Absorbing drift re-stamps the snapshot** to the donor's state at absorption (`status_at_mint`, `gen_at_mint`, `date`); the mint-time values live on in the E#### report. The snapshot is a baseline, not a history: left un-restamped it makes one donor move re-trigger the same drift on every later Phase A and every `reharm:pushing` run (row 5), which outranks synthesis, the prune sweep and momentum — so a single donor demotion would pin an unattended loop on integrity work that is already done. `wiki-lint.py` validates the subkeys.
 
 **Body structure (claim/mashup):**
 
@@ -292,7 +294,7 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
 ### Phase A. Retrospect
 1. Read the latest report in `wiki/meta/evolution/` and `hot.md`.
 2. Adversarially re-verify the nodes changed last session (§5). Taking long is fine.
-3. **Borrowed-snapshot check**: for mashups carrying `borrowed:` (§2), compare each donor node's current status/generation against the snapshot — drift is a new objection to absorb this session.
+3. **Borrowed-snapshot check**: for mashups carrying `borrowed:` (§2), compare each donor node's current status/generation against the snapshot — drift is a new objection to absorb this session, and absorbing it **re-stamps the snapshot** to the donor's current state (§2), with the mint-time values recorded in this session's report.
 4. Roll back (revise) or demote (deprecated) anything that collapsed. If the last session evaluation (§7) failed, start from its failing checks.
 
 ### Phase B. Target Selection

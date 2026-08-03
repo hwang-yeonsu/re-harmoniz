@@ -21,7 +21,10 @@ Borrow chords (knowledge) from a parallel key (another scope). **Read `${CLAUDE_
    - **Mint a `borrowed:` snapshot** (§2) — one entry per donor node: `node` (wikilink), `scope` (absolute donor-scope path), `status_at_mint`, `gen_at_mint`, `date`. This is the drift baseline reharmonization Phase A checks; without it a later donor demotion silently rots the mashup.
    - Scope B's knowledge is **cited by wikilink only — never copied or moved** (single source of truth). Scope B's nodes are never edited.
    - `sources:` lists wikilinks to both originating nodes.
-5. **Close out scope A**: `index.md`, `hot.md`, `log.md` (`## [date] modal-interchange | A×B`).
+5. **Wire the mashup into scope A's graph, or it lands as debt.** A fresh mashup only points outward, so two lint findings are the default outcome of steps 1–4 and both must be cleared before the session closes:
+   - **Give it an inbound edge** — add the mashup to the `supports:` of the scope-A claim(s) it synthesizes. Nothing else links a new mashup (`index.md` is not a node), so without this it is an `orphan`, which breaks `clean:false` and sends `reharm:pushing` to row 4 (structural debt) *past* the node you just minted.
+   - **Declare the donor links** — add each donor stem to the scope `CLAUDE.md` `Allowed external wikilinks:` toggle (with a comment naming the donor scope and the date). Cross-scope citations resolve nowhere inside scope A by design; the toggle is what marks them deliberate (`allowed_external`) instead of leaving them in `unresolved_external` for a later reader to re-verify.
+6. **Close out scope A**: `index.md`, `hot.md`, `log.md` (`## [date] modal-interchange | A×B`). Then lint from the scope root: expect `clean: true` with the donor links under `allowed_external`.
 
 ## Constraints
 
