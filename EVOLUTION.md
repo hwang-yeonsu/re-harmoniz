@@ -1,10 +1,12 @@
-# EVOLUTION.md — The re:Harmoniz Protocol (v0.7)
+# EVOLUTION.md — The re:Harmoniz Protocol (v1.0)
 
 > This is the single source of truth for how a research wiki evolves.
 > The `reharm:*` skills are thin entry points; this protocol is the engine.
 > System docs (this file, skills, README) are written in English. Scope content (notes, claims, reports) follows the user's language — Korean is expected and fully supported (§9).
 
-**Core principle.** Ideas evolve only under two pressures: **mutation** (revision) and **natural selection** (verification and culling). Every node may be revised at any time after creation — frequent revision is encouraged. Because only nodes that survive refutation gain a generation, the average reliability of the wiki rises monotonically over time.
+**Core principle.** A scope exists to settle a fixed set of **decisions**, declared before the research starts (§1). Claims are the branches under those decisions; verification exists to **prune** the branches, not to establish truth for its own sake. Three moves drive a scope forward: **mutation** (revision), **natural selection** (refutation and culling of what is wrong), and **pruning** (cutting what no open decision depends on, however true it may be). Only nodes that survive refutation gain a generation, so what the wiki asserts stays reliable — but the measure of progress is the share of declared decisions that are settled, and the evidence behind them.
+
+**What this is not.** It is not a truth engine. Splitting a mixed assertion into ever-finer propositions and grading each one raises a maturity number without moving a decision, and a proposition fine enough to be cleanly true is usually too fine to act on. Every gate below therefore asks the same question first — *which declared decision does this serve, and would settling it change what we do?* — and a node that cannot answer is pruned rather than hardened.
 
 ---
 
@@ -32,8 +34,34 @@ A **research scope** is a self-contained folder anywhere (any directory tree):
 │   └── meta/
 │       ├── evolution/        # evolution session reports (E0001.md, E0002.md …)
 │       └── lint/             # lint reports
-└── CLAUDE.md                 # scope config (template: templates/SCOPE_CLAUDE.md; required sections in §10)
+└── CLAUDE.md                 # scope config incl. the goal/decision block below (template: templates/SCOPE_CLAUDE.md; required sections in §10)
 ```
+
+### Goal & decisions — what the loop steers toward
+
+Every scope declares, in its `CLAUDE.md` (§10), the **decisions it exists to settle** — one line each, with an ID:
+
+```markdown
+### Goal & Open Decisions
+
+**Goal:** <one line: what acting on this research would accomplish>
+
+| ID | Decision to settle | Status |
+|---|---|---|
+| D1 | Do we replace 32-bit Adam with 8-bit in the training config? | open |
+| D2 | Do we need a stable-embedding layer before shipping? | settled |
+```
+
+A decision is **outside the wiki**: a design choice, a build/deploy step, a spend, a guardrail. "The claim reaches `hardened`" is not a decision — it is bookkeeping (the §12 rule, now applied scope-wide). Statuses are `open` and `settled`; anything else reads as `open`, so a typo can never retire a decision by accident.
+
+Every evolving node may carry **`serves:`** (§2) — the decision IDs it bears on. That binding is what makes pruning possible:
+
+- **Selection** (§4 Phase B) asks for the frontier *inside* one open decision, not across the whole scope: `boundary-score.py --serves D1`.
+- **Verification depth** (§5) follows it: nodes load-bearing for an open decision get the full three-lens pass; the rest get one lens.
+- **Pruning** (§3, §4 Phase C) cuts nodes bound to no open decision — `status: pruned`, which is *not* `deprecated`: the node was not refuted, it stopped mattering.
+- **Progress** (§7) is counted in decisions settled and branches pruned, not in generations alone.
+
+`serves:` is **optional**, so every pre-1.0.0 node stays valid with no migration. `wiki-lint.py` reports the gaps as warnings — `no_decisions_declared` (only once evolving nodes exist), `unknown_serves_target`, and `unassigned_claims`, the queue the pruning sweep works from — and never breaks `clean` over them. A scope that has not declared its decisions is not in violation; it is unconfigured, and every relevance rule above simply stays inert until it is.
 
 ### sources/ vs claims/ — the distinction that drives everything
 
@@ -57,9 +85,15 @@ When `reharm:root` seeds several sources at once, the main agent is an **orchest
 - **Responsibility seam.** Sub-agent (one per source, isolated): land the source (`.raw/`, incl. the single-URL fetch under §6.2/§6.3 hygiene) → `sources/<x>.md` → draft claims under `.reharm-draft/<source-stem>/`. Main agent: normalize input to a source list, merge duplicate drafts and promote to `claims/`, wire supports/contradicts edges, file failed sources and per-source overflow candidates under `questions/`, write the single-file globals (`index/hot/log`), and lint. The split follows write contention: `sources/` is 1:1 and each sub owns its own draft dir (no collision), so only the N:M `claims/` and the global files are main-owned.
 - **Draft staging is ephemeral and lint-invisible.** `.reharm-draft/` lives at the scope root, outside both `wiki/` and `.raw/` — the only trees `wiki-lint.py` scans — so even an aborted run's leftover drafts never count as nodes. The main agent empties it before fan-out and after promotion. This states the principle only; the detailed steps live in the `reharm:root` skill.
 
-### Field-origin sources atomize conservatively
+### Atomization is decision-gated
 
-A report in a declared result lane (e.g. `.raw/experiments-results/`) is **measurement, not literature**: its `sources/` page owns the run detail — metrics, parameters, per-hypothesis outcomes with their conditions — and at most **3 draft claims** may be minted from it, only for **decision-changing findings**: a result that flips a claim's verdict, opens a new failure mode, or bounds an existing claim's scope. Everything else reaches the wiki as `## Field Evidence` entries on the claims the run served (§4 Phase C), never as freestanding nodes. The general per-source cap stays 15; this tighter cap is what keeps one experiment run from spawning a flood of sibling seeds that each demand refuters, cadence, and index rows of their own.
+**A source becomes claims only where it bears on a declared decision.** For every assertion a source makes, ask: *if this flipped, would an open decision (§1) go the other way?* If yes it becomes a `claims/` node with `serves:` naming that decision. If no, it stays on the `sources/` page — recorded, citable, searchable, and free. A source page is not a lesser home; it is the right home for everything the decisions do not rest on.
+
+This is the rule the whole protocol turns on, because atomization sets the cost of every later phase: each node minted here demands refuters, a re-verification cadence, and an index row for the rest of the scope's life. Splitting one mixed assertion into six clean propositions multiplies that cost by six and settles nothing extra.
+
+- **Per-source cap: 15 nodes** — a volume backstop, not a target. Hitting it usually means the gate above was not applied. Overflow is parked in `questions/`, never dropped (§4 Phase C can promote it later if a decision starts to need it).
+- **Field-origin sources: cap 3.** A report in a declared result lane (e.g. `.raw/experiments-results/`) is **measurement, not literature**: its `sources/` page owns the run detail — metrics, parameters, per-hypothesis outcomes with their conditions — and claims are minted only for findings that flip a claim's verdict, open a new failure mode, or bound an existing claim's scope. Everything else reaches the wiki as `## Field Evidence` entries on the claims the run served (§4 Phase C), never as freestanding nodes.
+- **A scope with no declared decisions** cannot run the gate. Atomize by judged value under the 15 cap, as before, and say so — the honest report is "no decisions declared, so relevance was not filtered", not a silent fallback.
 
 ---
 
@@ -79,6 +113,7 @@ challenges_survived: 0          # count of survived objections (promotion eviden
 supports: []                    # wikilinks to nodes this claim supports
 contradicts: []                 # wikilinks to conflicting nodes (kept on BOTH until resolved)
 sources: []                     # wikilinks to evidence (.raw/ paths or sources/ pages)
+serves: []                      # optional: declared decision IDs this node bears on (§1) — the relevance key
 evidence_class: literature      # optional: literature | field | design — §3 gate currency; absent = literature
 aliases: []                     # english kebab-case aliases (search aid, §9)
 ---
@@ -86,7 +121,14 @@ aliases: []                     # english kebab-case aliases (search aid, §9)
 
 **Mandatory defaults for new nodes:** `status: seed`, `generation: 1`, `confidence: low`, `challenges_survived: 0`, `last_challenged: <creation date>`.
 
-**Node bodies assert what is known, never what to do next.** A `claim`/`mashup` body states the assertion and its boundary; **plans — "the next step is X", "this needs Y next" — belong in `hot.md`, the deliverable's next-steps section, or a `questions/` node.** The reason is mechanical, not stylistic: plans expire when a decision lands, but claims are graded on truth and carry no expiry, so a stale plan parked in a node body survives every cadence check. And because the synthesis step (`reharm:ensemble`) reads node *bodies* as raw material, such a line is copied into the deliverable, then into `hot.md`, then re-read by the next synthesis — prose citing prose in a closed loop that no `status` field can interrupt. `wiki-lint.py` reports these as `forward_looking_in_node_body` (warning).
+**`serves:` (optional) is the relevance key.** It lists the IDs of the declared decisions (§1) this node bears on — the test being *would flipping this node change which way that decision goes?*, not *is this node topically related?*. It drives target selection (§4 Phase B), verification depth (§5.1), the pruning sweep (§4 Phase C), and the §7 counters. Absent or empty means unassigned: the node is a prune candidate, not an error, and `wiki-lint.py` lists it under `unassigned_claims` (warning). A node may serve several decisions; when every decision it serves is `settled`, it is a prune candidate too — settled decisions no longer need branches.
+
+**Node bodies assert; they do not plan.** Two kinds of sentence are easy to confuse, and the protocol treats them oppositely:
+
+- **A conditional recommendation is an assertion — keep it in the body.** *"At ≤65B use 8-bit Adam; above it keep 32-bit"* says something falsifiable about the world: the §5 refuters can attack it, field evidence can bound it, and a decision can be taken from it. Engineering research produces mostly this, and it is the most useful thing a claim can carry. Nothing here pushes it out of a node.
+- **A plan is not an assertion — put it elsewhere.** *"The next step is to measure the >65B range"* has no truth value; it is a session intention, and it belongs in `hot.md`, the deliverable's next-steps section, or a `questions/` node.
+
+The reason is mechanical, not stylistic: a plan expires when the decision it precedes lands, while claims carry no expiry, so a stale plan parked in a node body survives every cadence check. And because the synthesis step (`reharm:ensemble`) reads node *bodies* as raw material, such a line is copied into the deliverable, then into `hot.md`, then re-read by the next synthesis — prose citing prose in a closed loop that no `status` field can interrupt. `wiki-lint.py` reports plan phrasing (*"next step"*, *"다음 단계"*) as `forward_looking_in_node_body` (warning); it deliberately does **not** flag conditional recommendations, which are the point of the wiki.
 
 **Evidence class (optional).** `evidence_class:` declares which currency the §3 evidence gate trades in: **`literature`** — the assertion stands on external documents (the default when the key is absent, so every legacy node stays valid with no migration); **`field`** — a fact measured on the scope's own data or system, for which an independent external source often *cannot* exist (its currency is replication, not citation); **`design`** — a decision the owner has adopted for this scope, recorded and challengeable but not provable by literature (its currency is the owner's adjudication). §3 calibrates the developing→hardened gate per class; `wiki-lint.py` validates the enum when present. A pure design *rationale* usually belongs in a design-intent `sources/` page rather than a claim — mint a `design`-class claim only when the decision itself must survive refutation.
 
@@ -191,11 +233,11 @@ type: deliverable
 title: "One-line thesis of the answer"
 created: 2026-07-02
 updated: 2026-07-02
-question: "[[central-question]]"    # the question this deliverable answers — its identity key
+question: "[[central-question]]"    # what this answers — a question wikilink OR a declared decision ID (e.g. "D1"); its identity key
 ---
 ```
 
-**Mandatory keys:** `type: deliverable`, `title`, `created`, `updated`, `question`. The evolution-mechanic keys are **omitted by design** (as with `experiment`): a deliverable is never graded — it is *re-derived* from graded nodes, update-in-place (`updated` bumps; git owns versions, §8). Body contract and confidence rule in §14.
+**Mandatory keys:** `type: deliverable`, `title`, `created`, `updated`, `question`. `question:` holds either a `questions/` wikilink or a **declared decision ID** (§1) — a deliverable that answers a decision is the normal case, since the decision is what someone is waiting on. The evolution-mechanic keys are **omitted by design** (as with `experiment`): a deliverable is never graded — it is *re-derived* from graded nodes, update-in-place (`updated` bumps; git owns versions, §8). Body contract and confidence rule in §14.
 
 ### Source page metadata (independence)
 
@@ -213,20 +255,24 @@ Independence has ancestry: the §5 evidence lens treats two sources whose `deriv
 ## 3. Maturity State Machine
 
 ```
- seed ──► developing ──► hardened ──► evergreen        (any state) ──► deprecated
+ seed ──► developing ──► hardened ──► evergreen        (any state) ──► deprecated   (refuted)
+                                                       (any state) ──► pruned       (stopped mattering)
 ```
 
 | Transition | Condition |
 |---|---|
 | seed → developing | ≥1 source + completed body (a declarative conclusion exists) |
-| developing → hardened | survived ≥1 adversarial verification + the class currency (§2 `evidence_class`): **literature** — ≥2 **independent** sources · **field** — ≥2 `## Field Evidence` entries under materially different conditions (another seed/split/period: replication, since an independent external source often cannot exist for a fact measured on the scope's own data) · **design** — the decision recorded as adopted (a design-intent `sources/` page or a critique verdict; the owner's adjudication is the evidence) |
+| developing → hardened | survived ≥1 **full-depth** adversarial verification (all three lenses, ≥2/3 — a single-lens pass does not open this gate, §5.1) + the class currency (§2 `evidence_class`): **literature** — ≥2 **independent** sources · **field** — ≥2 `## Field Evidence` entries under materially different conditions (another seed/split/period: replication, since an independent external source often cannot exist for a fact measured on the scope's own data) · **design** — the decision recorded as adopted (a design-intent `sources/` page or a critique verdict; the owner's adjudication is the evidence) |
 | hardened → evergreen | ≥1 entry in `## Field Evidence` (real-world feedback is the only gate). If that evidence is conditional, the claim's scope must be narrowed to match those conditions, and no open counterexample may remain (§5 reproducibility lens). A `field`-class claim arriving at `hardened` already carries this row's entry count (its replication entries *are* field evidence) — what remains is the reproducibility residue above, and when it holds, proposing both promotions in the same session is legitimate |
 | any → deprecated | total collapse under verification, **or absorption into a parent claim via a critique merge verdict** (the assertion lives on in the parent; the absorbed node's body becomes a one-line pointer — `Absorbed into [[parent]] (YYYY-MM-DD critique)` — so inbound wikilinks keep resolving). **Never delete** — flip status so the node leaves the graph but the record stays |
+| any → **pruned** | the node bears on no open decision: `serves:` is empty and no open decision depends on it, or every decision it serves is now `settled`. **This is not a verdict on truth** — a pruned node may be correct, well-sourced, and high-generation; it simply stopped bearing on anything the scope is deciding. The body stays verbatim and gains a one-line reason (`Pruned: <unassigned ｜ all served decisions settled ｜ superseded by [[decision-source]]> (YYYY-MM-DD)`). Like `deprecated` it is a status flip — never a delete — and it is **reversible**: if a decision reopens, flip the node back to the status it held and it re-enters the cadence |
 
 - Promotion is never auto-computed. Phase D **proposes** it with evidence; the evolution report records the rationale.
+- **Pruning is proposed, never automatic** — the same rule, for the same reason. Phase C reports prune candidates with the reason quoted; the user picks (§4 Phase B spirit). A linter can see that `serves:` is empty; only the user knows whether that is a gap in the binding or a genuinely dead branch.
 - Re-verification cadence (the decay curve is a *re-verification trigger*, never an auto-editor): seed/developing **every session**, hardened **4 weeks**, evergreen **12 weeks**. **`design`-class nodes sit outside the calendar** — they re-verify only when a neighbor moves against them (a new contradiction, or a supports/contradicts neighbor whose conclusion changed); a decision does not decay with time.
+- **Nodes bearing on no open decision sit outside the calendar too.** An unassigned node, or one whose every served decision is `settled`, is not re-verified on schedule — it is a prune candidate instead. This is what stops the treadmill: without it, a scope that atomized 60 assertions owes 60 re-verifications a session forever, regardless of how few of them any decision rests on.
 - **Decay candidates are capped.** When Phase B lists cadence-overdue nodes, seed/developing candidates show only the **top 5 by longest overrun** — an aging scope would otherwise flood every session with decay work and starve the frontier. The rest simply wait their turn; nothing is dropped.
-- **Experiment nodes sit outside this ladder** — they have their own lifecycle (`planned → running → imported | abandoned`, §2) and never gain a generation. Their only tie to maturity is the `hardened → evergreen` gate: a `type: experiment` pre-registration fixes the confirm/refute criterion the §5 reproducibility lens applies to the imported result (§4 Phase C). The result — not the experiment node — is what opens (or fails to open) the gate.
+- **Experiment nodes sit outside this ladder** — they have their own lifecycle (`planned → running → imported | abandoned | retired`, §2) and never gain a generation. `pruned` is a maturity value and is therefore *invalid* on an experiment node: a pre-registration whose decision died becomes `retired`. Their only tie to maturity is the `hardened → evergreen` gate: a `type: experiment` pre-registration fixes the confirm/refute criterion the §5 reproducibility lens applies to the imported result (§4 Phase C). The result — not the experiment node — is what opens (or fails to open) the gate.
 
 ---
 
@@ -241,27 +287,38 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
 4. Roll back (revise) or demote (deprecated) anything that collapsed. If the last session evaluation (§7) failed, start from its failing checks.
 
 ### Phase B. Target Selection
-1. Frontier candidates: from the scope root run
-   `python3 <plugin-root>/scripts/boundary-score.py --json --top 5`
-   (`<plugin-root>` = the installed plugin directory containing this file; the script reads `./wiki/` under the cwd).
-2. Decay candidates: nodes whose `last_challenged` exceeds their cadence (§3) — read the frontmatter dates and compare directly; scopes are small, no script involved.
-3. A user-named topic always wins.
-4. Present the merged candidate list and **let the user choose — never auto-select**.
+
+**Pick the decision first, then the node.** Selection is scoped to one open decision (§1) so the session's cost lands where a decision is waiting on it.
+
+1. **Active decision**: read the scope's open decisions and the lint `decisions` block. One open decision → it is the active one. Several → present them with the state of each (how many serving nodes, how many at `hardened`+) and let the user pick. None declared → say so and fall back to steps 2–4 unfiltered, reporting that relevance was not filtered.
+2. Frontier candidates **inside that decision**: from the scope root run
+   `python3 <plugin-root>/scripts/boundary-score.py --json --top 5 --serves <ID>`
+   (`<plugin-root>` = the installed plugin directory containing this file; the script reads `./wiki/` under the cwd). The score formula is unchanged — `--serves` filters, it does not re-weight — so an empty result means "no frontier inside this decision", not an error.
+3. Decay candidates: nodes serving that decision whose `last_challenged` exceeds their cadence (§3) — read the frontmatter dates and compare directly; scopes are small, no script involved. Nodes bearing on no open decision are **not** decay candidates (§3); they are prune candidates.
+4. A user-named topic always wins, decision filter included.
+5. Present the merged candidate list and **let the user choose — never auto-select**. Record the active decision in the report's `## Targets & Why` (§11.1).
 
 ### Phase C. Mutation
 Per target:
 - If new `.raw/` material exists: decompose it and recombine with existing nodes.
 - **Field-origin results** (the scope's own experiment/real-world output — by convention under `.raw/experiments-results/`) import into the target claim's `## Field Evidence`, carrying their conditions (§2) — not into `## Objections & Limits`. Their atomization at root time is conservative (§1: detail on the source page, ≤3 decision-changing claims). External material (papers, web, repos) is seed, as above. Ambiguous origin → confirm with the user in Phase B.
   - **If a `type: experiment` pre-registration exists for the target** (§2, §12): judge the result against its **pre-registered** `## Confirm / Refute` criterion — never a post-hoc one. CONFIRM → append to `## Field Evidence` with conditions (the evergreen gate, §3); REFUTE → the counterexample feeds Phase D's reproducibility lens (absorbed into `## Objections & Limits`, or `deprecated` on total collapse). Either way flip the experiment node to `status: imported`; a run that never produced a usable result → `status: abandoned`.
-- **Owner design decisions** (`.raw/design-decisions/` by convention — scope-redefinition declarations, not literature) absorb like any `.raw/` material, but they carry a mandatory side-effect step: **sweep the experiment queue.** For every `type: experiment` node that is neither `retired` nor already carrying a recorded re-run retirement (the `imported`-plus-banner case below), re-read its `## Decision at stake` (§2) and ask whether this decision just closed the action named there. If the two stake-branches have collapsed to the same outcome, the pre-registration has lost its decision value and is a **retirement candidate** — report it with the collapsed branch quoted; never auto-retire (Phase B spirit: the user picks). This step exists because a pre-registration can be decision-relevant *when written* and lose that later, and nothing else in the loop re-checks it — the design record itself is frozen by the no-post-hoc-redefinition rule, so it cannot notice its own obsolescence. Retiring a queued re-run does **not** touch the node's hypothesis or criterion.
+- **Owner design decisions** (`.raw/design-decisions/` by convention — scope-redefinition declarations, not literature) absorb like any `.raw/` material, but they carry a mandatory side-effect: they can **settle or collapse a declared decision**. Absorbing one means re-reading the scope's decision block (§1) and reporting — never auto-applying — which decisions the material just settled, plus every node and pre-registration that stood on the collapsed branch. Those flow into the prune sweep below. This step exists because a claim or pre-registration can be decision-relevant *when written* and lose that later, and nothing else in the loop re-checks it: a frozen design record cannot notice its own obsolescence.
 - If new evidence or counterexamples are needed: **web search** (policy in §6).
 - Contrast / compare / integrate with adjacent nodes → create `mashups/` nodes.
+- **Prune sweep (every session, before Phase D spends anything).** Walk the nodes that are not this session's targets and report — never auto-apply (§3) — every **prune candidate**, each with its reason:
+  - `serves:` empty and no open decision depends on it (the lint `unassigned_claims` list is the starting point);
+  - every decision it serves is now `settled`;
+  - an owner design decision absorbed this session collapsed the branch it stood on.
+  Present them as one batch with the reason quoted; the user picks which flip to `status: pruned` (§3). Unpicked candidates stay exactly as they are. **This sweep is what keeps the scope's cost proportional to its open decisions** — without it, every assertion ever atomized keeps drawing refuters and cadence for the life of the scope. Nodes newly bound to a decision this session are *not* candidates: check the binding before the branch.
+  - The same walk covers the **experiment queue**: for every `type: experiment` node that is neither `retired` nor already carrying a recorded re-run retirement, re-read its `## Decision at stake` (§2) and report those whose two branches this session's material collapsed into one outcome. Retiring a queued re-run does **not** touch the node's hypothesis or criterion (§4 forbids post-hoc redefinition of a frozen design record).
 
 ### Phase D. Natural Selection
-Run §5 on every mutation:
+Run §5 on every mutation, **at the depth the node's decision role earns** (§5.1):
 - **Survives** → `generation +1`, `challenges_survived +1`, refresh `last_challenged`, propose promotion if §3 conditions hold.
-- **Partial collapse** → absorb the valid objection into `## Objections & Limits` — compress it to its ≤2-line boundary condition and **rewrite the section to the current set** (§2); the refuter's full reason is archived in the E#### report (§11.1) — then revise and re-judge.
+- **Partial collapse** → absorb the valid objection into `## Objections & Limits` — compress it to its ≤2-line boundary condition and **rewrite the section to the current set** (§2); the refuter's full reason is archived in the E#### report (§11.1) — then revise and re-judge **once** (§5.3). A node still partially collapsing after that single re-judge keeps its current generation, keeps the residual objection on the record, and its unresolved part is filed as a `questions/` node — the session moves on rather than grinding.
 - **Total collapse** → `status: deprecated`.
+- **Not worth judging** → if a target turns out to bear on no open decision, do not run refuters on it at all: report it as a prune candidate (above) and drop it from the session. Refuting a node nothing depends on costs three sub-agents to learn something no decision uses.
 
 ### Phase E. Record
 1. Write `wiki/meta/evolution/E####.md` (§11.1 template; zero-padded sequence).
@@ -273,14 +330,26 @@ Run §5 on every mutation:
 
 ## 5. Adversarial Verification Rubric
 
+The three lenses, each run by an **isolated sub-agent** restricted to exactly one of them:
+
+- `coherence` — logical flaws, internal contradiction, leaps
+- `evidence` — source reliability, independence, dates, quote distortion
+- `reproducibility` — does it hold under real/experimental conditions; are there counterexamples
+
 For each item under verification:
 
-1. Run **three refuters in parallel, each as an isolated sub-agent**, each restricted to one lens:
-   - `coherence` — logical flaws, internal contradiction, leaps
-   - `evidence` — source reliability, independence, dates, quote distortion
-   - `reproducibility` — does it hold under real/experimental conditions; are there counterexamples
+1. **Depth follows decision role.** How many lenses a node earns depends on what rests on it, not on how interesting it is. A node is **load-bearing** for a decision when flipping it would change which way that decision goes — the §14 test, applied to a decision instead of a sentence.
+
+   | Depth | When | Lenses | On survival |
+   |---|---|---|---|
+   | **full** | load-bearing for an **open** decision | all 3, **≥2/3 must survive** | `generation +1`, `challenges_survived +1`, refresh `last_challenged`, promotion eligible (§3) |
+   | **single** | serves an open decision but is not load-bearing for it (a bound, a supporting detail, context) | **1**, derived from `evidence_class` (§2): `literature` → `evidence` · `field` → `reproducibility` · `design` → `coherence` (absent class = `literature`) | `challenges_survived +1`, refresh `last_challenged`, **no generation gain**, promotion capped at `developing` |
+   | **none** | bears on no open decision | **0** — not judged | nothing; it is a prune candidate (§4 Phase C) |
+
+   Two consequences are deliberate. **A generation still means "survived the full three-lens pass"**, so the guarantee the wiki makes about its own claims is unchanged — the cheap tier buys currency, not generations. And **cost follows need**: the moment a synthesis has to lean on a single-lens node, that node becomes load-bearing and takes the full pass on its next session. Depth is re-derived every session, because a decision settling or reopening changes what rests on what. The E#### report records the depth per node (§11.1) so a reader can always see which verdicts were cheap.
+
 2. **Isolation is structural, not stylistic** — the §1 pollution-control invariant applied to the judging side. An in-context refuter has watched the mutation being made and is anchored toward accepting it; an isolated one judges only the artifact. Each refuter is spawned on the worker doc `skills/reharmonization/refuter.md` (resolved to an **absolute path** by the orchestrator) and receives, inline in its spawn prompt: its one lens, the target node verbatim (frontmatter + body, post-mutation), the cited `wiki/sources/` page originals, and the lens material refuter.md lists — and **never the session's mutation narrative**. Refuters are judgment-only: they write nothing, fetch nothing, and read nothing but `EVOLUTION.md`. The exact inputs and the return contract (`{ "lens": …, "refuted": true|false, "reason": …, "counter_evidence": … }`) live in refuter.md.
-3. Verdict: **pass only if ≥2 of 3 survive** (`refuted=false`). Record the three verdicts and refutation reasons in the report; absorb valid objections into the node. After a partial collapse is absorbed and the node revised, re-judge by **re-spawning the same isolated workers** against the revised node — never by an in-context second opinion.
+3. Verdict: at full depth, **pass only if ≥2 of 3 survive** (`refuted=false`); at single depth, pass iff that one lens returns `refuted=false`. Record every verdict and refutation reason in the report; absorb valid objections into the node. After a partial collapse is absorbed and the node revised, re-judge by **re-spawning the same isolated workers** against the revised node — never by an in-context second opinion — and **at most once per node per session**. A node that still collapses after that one re-judge is not ground down further: it keeps its current generation, the residual objection stays in `## Objections & Limits`, and the unresolved part is filed as a `questions/` node for a later session or a `critique` ruling. The cap exists because an assertion that mixes a true part with a false one can absorb-and-revise indefinitely, and each round costs a full re-spawn while the decision it serves waits.
 4. **Degraded mode fails loud.** If sub-agents cannot be spawned in the current environment, run the three lenses in-context as three separate, sequential judgments — and record **`refuters ran non-isolated`** in the E#### report's Verdicts section, so the weaker isolation is on the record for anyone auditing the session.
 5. Before high-stakes promotions (e.g. hardened → evergreen candidates), a deeper external research pass may be run if your setup offers one; its output report goes into `.raw/` and re-enters through `reharm:root`.
 6. The reproducibility lens may also run **prospectively**: a `type: experiment` pre-registration (§2, §12) fixes its CONFIRM/REFUTE criterion *before* a field experiment, so Phase C/D applies the same lens to the result without redefining it after the fact. Same rubric, run ahead of the evidence.
@@ -294,15 +363,16 @@ For each item under verification:
 - The protocol fixes the **function, not the implementation**, and that function has two halves — **discovery** (finding candidate URLs) and **extraction** (turning a URL into clean markdown). Native **WebSearch** is the baseline for discovery; for extraction, native **WebFetch** is the always-available baseline and the `defuddle` CLI is **preferred when present** (procedure in §6.3). Any external research loop is acceptable as long as it respects §6.1–§6.2 and the bounds above.
 - Per-scope opt-out: set `Web search: disabled` in the scope CLAUDE.md and all phases skip it. Per-scope source preference/exclusion lives in the scope CLAUDE.md toggles (§10).
 
-### 6.1 Search procedure — refutation-aligned, not topic-collection
+### 6.1 Search procedure — decision-aligned, not topic-collection
 
-The goal is not to *gather* material but to *pressure* a node. For each target, decompose the search by **angle**, anchored to the §5 rubric — not by sub-topic:
+The goal is not to *gather* material but to *move a decision*. For each target, decompose the search by **angle** — not by sub-topic:
 
-1. **Refutation angle** — evidence that would break the claim (feeds the coherence/evidence lenses).
-2. **Independent-source angle** — corroboration from a source not already cited, so a survivor can earn the §3 developing→hardened literature gate (≥2 *independent* sources; a field-class claim needs replication instead — searching cannot supply it).
-3. **Counterexample angle** — real or experimental conditions where the claim fails (feeds the reproducibility lens).
+1. **Decision angle** (always first) — what evidence would settle the open decision this target serves, or would show the branch is a dead end. This is the angle that can end the search early: material that settles the decision makes the other three unnecessary.
+2. **Refutation angle** — evidence that would break the claim (feeds the coherence/evidence lenses).
+3. **Independent-source angle** — corroboration from a source not already cited, so a survivor can earn the §3 developing→hardened literature gate (≥2 *independent* sources; a field-class claim needs replication instead — searching cannot supply it).
+4. **Counterexample angle** — real or experimental conditions where the claim fails (feeds the reproducibility lens).
 
-Round 1 broad (1–2 queries per angle); round 2 fills only the gaps or contradictions round 1 surfaced; stop at the bounds above. For every kept source record date, independence (1st- vs 2nd-hand), and URL on its `sources/` page — these are exactly what Phase D's evidence lens (§5) adjudicates.
+**Angles 2–4 are for full-depth targets** (§5.1). A single-depth target runs the decision angle only — one round, and stop. Round 1 broad (1–2 queries per angle); round 2 fills only the gaps or contradictions round 1 surfaced; stop at the bounds above. For every kept source record date, independence (1st- vs 2nd-hand), and URL on its `sources/` page — these are exactly what Phase D's evidence lens (§5) adjudicates.
 
 ### 6.2 Egress hygiene — fetched content is untrusted input
 
@@ -324,15 +394,17 @@ Inside the bounded fetch step above, prefer the `defuddle` CLI over native WebFe
 
 ## 7. Session Evaluation & Stagnation Detection
 
-At the end of every reharmonization session, self-grade against machine-checkable criteria and store the JSON next to the report (`E####.eval.json`) — **schema v2, counter-based**:
+At the end of every reharmonization session, self-grade against machine-checkable criteria and store the JSON next to the report (`E####.eval.json`) — **schema v3, counter-based**:
 
 ```json
 {
   "pass": true,
-  "score": 0.78,
+  "score": 0.81,
   "checks": {
     "lint_clean": true,
     "no_unresolved_contradiction": true,
+    "decisions_settled": 1,
+    "branches_pruned": 3,
     "generation_progress": 3,
     "mutations_rejected": 1,
     "new_independent_sources": 2,
@@ -341,9 +413,9 @@ At the end of every reharmonization session, self-grade against machine-checkabl
   },
   "stagnation": {
     "trailing": [
-      { "session": "E0002", "generation_progress": 2, "mutations_rejected": 0, "new_seeds": 3, "new_independent_sources": 1, "failed_checks": [] },
-      { "session": "E0003", "generation_progress": 0, "mutations_rejected": 2, "new_seeds": 0, "new_independent_sources": 0, "failed_checks": [] },
-      { "session": "E0004", "generation_progress": 3, "mutations_rejected": 1, "new_seeds": 1, "new_independent_sources": 2, "failed_checks": [] }
+      { "session": "E0002", "decisions_settled": 0, "branches_pruned": 2, "generation_progress": 2, "mutations_rejected": 0, "new_seeds": 3, "new_independent_sources": 1, "failed_checks": [] },
+      { "session": "E0003", "decisions_settled": 0, "branches_pruned": 0, "generation_progress": 0, "mutations_rejected": 2, "new_seeds": 0, "new_independent_sources": 0, "failed_checks": [] },
+      { "session": "E0004", "decisions_settled": 1, "branches_pruned": 3, "generation_progress": 3, "mutations_rejected": 1, "new_seeds": 1, "new_independent_sources": 2, "failed_checks": [] }
     ],
     "verdict": "continue"
   }
@@ -351,20 +423,26 @@ At the end of every reharmonization session, self-grade against machine-checkabl
 ```
 
 - `pass` (required boolean) and `stagnation.verdict` (required enum: `continue` | `reseed` | `change-strategy`) are the only fields other tooling branches on; `wiki-lint.py` validates both on the latest eval (`eval_findings`, a warning). A failing session is still a valid session — it simply becomes Phase A's first target next time.
-- **Counters** (this session's row also closes the `trailing` array; earlier rows come from the previous evals):
-  - `generation_progress` — total generation gains this session.
+- **Decision counters — the primary progress signal:**
+  - `decisions_settled` — declared decisions (§1) flipped `open → settled` this session, whether by an owner ruling or because the evidence now answers them. **This is what the scope is for.** A session that settles one decision has done more than a session that raised five generations.
+  - `branches_pruned` — nodes flipped to `status: pruned` this session (§3). A high value is **healthy**, like `mutations_rejected`: it is the scope shedding cost it no longer owes. Pruning ten stale nodes makes every later session cheaper.
+- **Secondary counters** (this session's row also closes the `trailing` array; earlier rows come from the previous evals):
+  - `generation_progress` — total generation gains this session (full-depth passes only — the single-lens tier grants no generations, §5.1). Secondary on purpose: generations earned on nodes no open decision rests on are motion, not progress.
   - `mutations_rejected` — mutations Phase D refused (rolled back, absorbed-and-demoted, or dropped). **A high value is not failure** — correctly culling bad mutations is healthy selection; hiding it once mis-scored a healthy session as a 0.45 slump. It becomes a problem only as a *streak* (see change-strategy below).
   - `new_seeds` — nodes newly created this session (Phase C spin-offs, imports).
   - `new_independent_sources` — sources newly cited this session that are independent of the target claims' existing citations (the §3 developing→hardened literature currency).
   - `failed_checks` — names of the boolean checks that failed this session.
 - `score` is **optional, display-only, and derived** — fixed formula, booleans as 0/1:
-  `score = mean( lint_clean, no_unresolved_contradiction, report_written, challenge_survival_rate, min(generation_progress, 3) / 3 )`.
+  `score = mean( lint_clean, no_unresolved_contradiction, report_written, challenge_survival_rate, min(generation_progress, 3) / 3, min(decisions_settled + branches_pruned, 3) / 3 )`.
   **No verdict, gate, or tool may branch on `score`.** It exists for a human scanning a list of sessions, nothing else.
-- **Stagnation verdict — computed from counters only, never from scores.** Over the trailing 3 sessions (including this one; fewer than 3 completed sessions → `continue`, not enough trail to judge):
+- **Stagnation verdict — computed from counters only, never from scores.** Over the trailing 3 sessions (including this one; fewer than 3 completed sessions → `continue`, not enough trail to judge). A counter absent from an older row reads as 0:
   - `reseed` — Σ `generation_progress` == 0 **and** Σ `new_seeds` == 0 **and** Σ `new_independent_sources` == 0. Nothing moved and nothing new came in: the scope needs new raw material, not more churn.
-  - `change-strategy` — the **same** check name appears in `failed_checks` 3 sessions in a row, **or** 3 sessions in a row rejected every attempted mutation (`mutations_rejected` > 0 with `generation_progress` == 0 in each). The loop is hitting the same wall; repeating it won't help.
+  - `change-strategy` — any of:
+    1. the **same** check name appears in `failed_checks` 3 sessions in a row;
+    2. 3 sessions in a row rejected every attempted mutation (`mutations_rejected` > 0 with `generation_progress` == 0 in each);
+    3. **3 sessions in a row moved no decision while gaining generations** — Σ `decisions_settled` == 0 **and** Σ `branches_pruned` == 0 **and** Σ `generation_progress` > 0. The wiki is getting more reliable about things nobody is waiting on. This is the exact failure the protocol's decision counters exist to catch, and it reads as healthy under every other check: lint clean, survival rate high, generations climbing. The fix is never another verification round — it is to re-read the decision block and pick a target that serves an open one, or to admit the decisions are stale and rewrite them.
   - `continue` — otherwise. In particular, a single all-rejected session with healthy neighbors is `continue` — that is selection working, not stagnation.
-- Legacy (v1) evals carrying `trailing_scores` stay readable — only `pass` and `stagnation.verdict` are load-bearing, and both existed in v1. New sessions always write v2.
+- Legacy evals stay readable: v1 carried `trailing_scores`, v2 lacked the decision counters, and in both only `pass` and `stagnation.verdict` are load-bearing — both have existed since v1. Missing counters read as 0, so a v2 trail cannot trigger the new change-strategy case until three v3 sessions exist. New sessions always write v3.
 
 ---
 
@@ -396,10 +474,10 @@ No separate long-term memory state file — these three layers plus git are suff
 
 Every scope's `CLAUDE.md` must contain (template: `templates/SCOPE_CLAUDE.md`):
 
-1. Purpose & topic boundaries (one paragraph).
+1. Purpose & topic boundaries (one paragraph) **and the `### Goal & Open Decisions` block** (§1): the goal in one line, plus one `| ID | decision | open｜settled |` row per decision the scope exists to settle. This block is what every relevance rule reads — target selection (§4 Phase B), verification depth (§5.1), the pruning sweep (§4 Phase C), and the §7 counters. A scope may start with one decision; starting with none leaves the loop unsteered, and `wiki-lint.py` says so (`no_decisions_declared`) as soon as evolving nodes exist. Keeping it current is part of the work: settling a decision means flipping its row, which is what lets the next session prune what it carried.
 2. **Metadata**: real code-workspace path(s) — the scope is not a code workspace.
 3. Protocol pointer: "This scope follows the re:Harmoniz protocol (`reharm` plugin, EVOLUTION.md)."
-4. Adversarial verification summary (§5 — the channel that injects the rubric into any research loop running inside the scope).
+4. Adversarial verification summary (§5 — the channel that injects the rubric into any research loop running inside the scope), including the depth tiers (§5.1) so a loop running inside the scope does not spend three refuters on a node nothing rests on.
 5. Seed source candidates (input queue for `reharm:root`).
 6. Optional toggles: `Web search: disabled`, custom re-verification cadence, **source policy** (preferred/excluded sources — e.g. prefer peer-reviewed / official / primary, never cite social media or undated pages as high-confidence; this scopes the §6 evidence lens per domain), `Research escalation:` (the §13 deep-research entry point — unset keeps the bridge closed), and `Allowed external wikilinks:` (deliberate cross-scope stems; lint reports them as `allowed_external` instead of unresolved noise).
 
@@ -414,7 +492,8 @@ The report owns the *process* (what changed and why); node bodies own only resul
 **Length discipline — the report is an audit record, not a second wiki (target ≤40 lines):**
 
 - `## Mutations` — ≤2 lines per target: what changed, from which material.
-- `## Verdicts` — one line per node (`[[node]] — coherence ✓ · evidence ✗ · reproducibility ✓ → 2/3`), plus a reason clause **only for refuted lenses and re-judgings**. That clause is the archive of the full objection the node compresses away (§2) — a surviving lens gets the mark, never a narrative.
+- `## Verdicts` — one line per node, **opening with the depth it was judged at** (§5.1): `[[node]] — full: coherence ✓ · evidence ✗ · reproducibility ✓ → 2/3` or `[[node]] — single(evidence) ✓`. A reason clause is added **only for refuted lenses and re-judgings**. That clause is the archive of the full objection the node compresses away (§2) — a surviving lens gets the mark, never a narrative.
+- `## Pruned` — one line per node cut, with its §3 reason. Prune lines are as load-bearing as promotions: they are how a reader later reconstructs why a decision stopped needing a branch.
 - `## Promotions` — one line each, with its §3 evidence.
 - `log.md` entries are exactly **one line** — `## [date] <skill> | <one-line summary>` — detail belongs to the report; `hot.md` stays ~500 words.
 
@@ -424,43 +503,60 @@ type: meta
 title: "E0001 — <one-line session verdict>"
 created: 2026-06-12
 session: E0001
+decision: D1                        <!-- the open decision this session served (§4 Phase B) -->
 targets: ["[[node-a]]", "[[node-b]]"]
 ---
 
 # E0001 — <one-line session verdict>
 
-## Targets & Why         <!-- Phase B: candidates presented, the user's picks, selection rationale -->
+## Decision & Targets    <!-- Phase B: the active decision, candidates presented, the user's picks, rationale -->
 
 ## Mutations             <!-- Phase C: per node — what changed, from which material; new mashups -->
 
-## Verdicts              <!-- Phase D: per mutation — the 3 refuter outcomes; objections absorbed -->
+## Verdicts              <!-- Phase D: per node — depth, lens outcomes, objections absorbed -->
+
+## Pruned                <!-- §3 prunes applied, each with its reason; [] when none -->
 
 ## Culled & Rolled Back  <!-- deprecations and Phase A rollbacks, with reasons -->
 
 ## Promotions            <!-- promotions proposed/applied, each with its §3 evidence -->
 
+## Decision movement     <!-- did the active decision move? settled / closer + what remains / unmoved + why -->
+
 ## Next                  <!-- candidates and open questions for the next session -->
 ```
 
+`## Decision movement` is the section a reader checks first, and the one that makes a hollow session visible: three sessions of "unmoved" is exactly what §7's third change-strategy trigger counts.
+
 ### 11.2 Index — `wiki/index.md`
 
-Master catalog + maturity census, always current (§8). Claims and mashups are mandatory rows; sources/ and questions/ may get separate tables.
+Master catalog + maturity census, always current (§8). Claims and mashups are mandatory rows; sources/ and questions/ may get separate tables. The **Decisions** table comes first: it is the scope's scoreboard, and reading it should answer "how far along are we?" without opening anything else.
 
 ```markdown
 # Index — <scope name>
 
-**Census:** 12 nodes · seed 5 · developing 4 · hardened 2 · evergreen 0 · deprecated 1 (2026-06-12)
+**Decisions:** 3 declared · 2 open · 1 settled (2026-06-12)
 
-| Node | Type | Status | Gen | Confidence | Updated |
-|---|---|---|---|---|---|
-| [[claim-x]] | claim | developing | 3 | medium | 2026-06-11 |
+| ID | Decision | Status | Serving nodes | hardened+ |
+|---|---|---|---|---|
+| D1 | Replace 32-bit Adam with 8-bit? | open | 4 | 2 |
+| D2 | Stable-embedding layer before shipping? | settled | 2 | 2 |
+
+**Census:** 12 nodes · seed 5 · developing 3 · hardened 2 · evergreen 0 · deprecated 1 · pruned 1 (2026-06-12)
+
+| Node | Type | Serves | Status | Gen | Confidence | Updated |
+|---|---|---|---|---|---|---|
+| [[claim-x]] | claim | D1 | developing | 3 | medium | 2026-06-11 |
+| [[claim-y]] | claim | — | pruned | 2 | medium | 2026-06-11 |
 
 ## Deliverables            <!-- §14 — outside the maturity census -->
 
-| Deliverable | Question | Confidence floor | Updated |
+| Deliverable | Answers | Confidence floor | Updated |
 |---|---|---|---|
-| [[answer-x]] | [[question-y]] | medium | 2026-07-02 |
+| [[answer-x]] | D1 | medium | 2026-07-02 |
 ```
+
+The `Serves` column is what makes the prune queue visible at a glance: a long run of `—` rows in a scope with open decisions is the signal that atomization outran the decisions (§1).
 
 ---
 
@@ -479,7 +575,8 @@ Three layers, each owning one thing — and they must not bleed into each other:
 - **Tool-agnostic.** The protocol fixes the *seam*, not the tool. Any runner is acceptable; `autoresearch` is the reference. The runner entry point is recorded per node as `runner:` (§2) and/or per scope in `CLAUDE.md` (§10) — never inferred.
 - **The human crosses the workspace boundary.** The design skill stops at a handoff command and never executes it; the user carries the spec into the code workspace and runs the planner there. The research scope and the code workspace are usually different directories/repos, so this hop is a deliberate boundary crossing, not a missing automation.
 - **Return path.** The runner's report lands in `.raw/experiments-results/` (the field-origin convention, §1) → `reharm:root` summarizes it into `sources/` → `reharm:reharmonization` Phase C imports it, judged against the node's pre-registered criterion (§4 Phase C), and flips the experiment node to `imported`.
-- **Decision gate.** Only experiments that can change an action get pre-registered. Before fixing a criterion, name — in the node's `## Decision at stake` (§2) — what differs **outside the wiki** under CONFIRM versus REFUTE. The two rows must differ, and neither may be a wiki-internal event: "the evergreen gate opens", "the node is promoted", "the claim's scope narrows" all **fail** the gate, because a maturity label is bookkeeping, not a decision. If the honest answer is that nothing outside the wiki moves either way, the run is a record-keeping exercise — redirect to `reharm:reharmonization` (the claim can still be scoped, corroborated, and refuted without a measurement). Note the gate is about the *decision context*, while the testability gate below is about the *claim*: the two are independent, and a proposal must clear both. A gate cleared at authoring time can still lapse later — Phase C's design-decision sweep (§4) is what catches that.
+- **Decision gate.** Only experiments that can change an action get pre-registered. Before fixing a criterion, name — in the node's `## Decision at stake` (§2) — what differs **outside the wiki** under CONFIRM versus REFUTE. Name the declared decision (§1) it serves; if the run bears on none, that is the answer. The two rows must differ, and neither may be a wiki-internal event: "the evergreen gate opens", "the node is promoted", "the claim's scope narrows" all **fail** the gate, because a maturity label is bookkeeping, not a decision. If the honest answer is that nothing outside the wiki moves either way, the run is a record-keeping exercise — redirect to `reharm:reharmonization` (the claim can still be scoped, corroborated, and refuted without a measurement). Note the gate is about the *decision context*, while the testability gate below is about the *claim*: the two are independent, and a proposal must clear both. A gate cleared at authoring time can still lapse later — Phase C's prune sweep (§4) is what catches that.
+  - **This gate is no longer local to experiments.** It began here, as the most expensive step's admission test, and §1 now applies the same question at every step that spends anything: what a source atomizes into, which node a session targets, how many lenses it earns, and whether it is kept at all. What remains specific to §12 is the *pre-registration* discipline — freezing the criterion before the run.
 - **Testability gate.** Only empirically testable claims get an experiment. Definitional / analytical / historical claims have no runnable result; their evidence path is independent-source corroboration (§3 developing→hardened) and the §5 refuters — the design skill detects this and redirects rather than forcing a metric.
 - **`reharm:pushing` only points here.** It detects a claim stuck at the evergreen gate and recommends the design skill (read-only, §3/§4 "nothing is auto-decided"); it never authors the spec itself.
 
@@ -500,15 +597,16 @@ Three phases, on the same declared-seam pattern as §12 (tool-agnostic — the p
 - **DESIGN — escalation is question-shaped.** The unit is a `wiki/questions/` node, never a claim: flip it to `status: escalated` and write an `## Escalation` block that answers one thing — **"what would change our mind?"**: the missing independent evidence, the counterexample that would settle it, and wikilinks to the claim(s) it serves. Without that block an escalation is just "search more," which §6 already does; with it, the returning report can be judged against a criterion fixed in advance (the same pre-registration discipline as §12).
 - **EXECUTE — the toggle is the gate.** The entry point lives in the scope `CLAUDE.md` (`Research escalation:` — §10), same pattern as §12's `runner:`. Toggle unset → the bridge is closed and pushing never recommends it. The tool runs **outside** the session (the user carries the question across, as in §12); its report lands in `.raw/deep-research/`.
 - **RETURN — secondary by construction.** `reharm:root` atomizes the report like any source, but its `sources/` page records `origin: secondary` and `derived_from:` the primaries it digests (§2); where a primary matters, land and cite it directly. The next reharmonization session imports the material through Phase C/D, and the question flips `escalated → answered` when its claims move. **That is how §13 opens the §3 developing→hardened gate**: by delivering the independent sources the gate demands — with independence still adjudicated by the §5 evidence lens (`derived_from` overlap = non-independent), so a deep-research digest can never double-count as two sources.
-- **`reharm:pushing` only points here** (cascade, right after the §12 experiment rule): a **literature-class** `developing` claim with no new independent source for ≥2 sessions, or an `open` question with no progress for ≥4 sessions, while the toggle is set → recommend escalation, read-only. (A field-class claim stuck at the same gate routes to the §12 experiment rule instead — searching cannot supply replication.) The autonomous loop template **skips** this recommendation entirely (manual-only v1) and falls through to the next candidate.
+- **`reharm:pushing` only points here** (cascade, right after the §12 experiment rule): a **literature-class** `developing` claim that is **load-bearing for an open decision** (§5.1) with no new independent source for ≥2 sessions, or an `open` question with no progress for ≥4 sessions, while the toggle is set → recommend escalation, read-only. (A field-class claim stuck at the same gate routes to the §12 experiment rule instead — searching cannot supply replication. A claim that is *not* load-bearing for any open decision routes to the prune sweep instead — escalating deep research for a node nothing rests on is the most expensive way to learn something no decision uses.) The autonomous loop template **skips** this recommendation entirely (manual-only v1) and falls through to the next candidate.
 
 ---
 
 ## 14. Deliverables — Answer Synthesis
 
-The loop hardens *claims*; a **deliverable** is the exit: one page that answers the scope's central question from what survived, written by `reharm:ensemble`. A wiki that only accumulates hardened nodes has no outlet — the central question can sit fully answered in pieces with nowhere the answer actually lives (field-evidenced: a scope reached a hardened core and simply hit a ceiling). The deliverable is that outlet, and it is deliberately **not** a knowledge node (§2 schema: `type: deliverable`, non-evolving).
+The loop prunes and hardens *claims*; a **deliverable** is the exit: one page that answers a declared decision (or a central question) from what survived, written by `reharm:ensemble`. A wiki that only accumulates hardened nodes has no outlet — a decision can sit fully answered in pieces with nowhere the answer actually lives (field-evidenced: a scope reached a hardened core and simply hit a ceiling). The deliverable is that outlet, and it is deliberately **not** a knowledge node (§2 schema: `type: deliverable`, non-evolving).
 
-- **Identity = the question.** One deliverable per question (`question:` wikilink is the identity key). Re-synthesis **updates the same file in place** and bumps `updated`; versions belong to git (§8) — never a `-v2` file. Node states everywhere else are **invariant**: ensemble reads claims, it never touches them (flipping the answered question's status is a critique/reharmonization act).
+- **Identity = what it answers.** One deliverable per decision or question (`question:` is the identity key — a decision ID or a `questions/` wikilink). Re-synthesis **updates the same file in place** and bumps `updated`; versions belong to git (§8) — never a `-v2` file. Node states everywhere else are **invariant**: ensemble reads claims, it never touches them (flipping the answered question's status, or the decision's row to `settled`, is a critique/reharmonization act).
+- **Synthesize as soon as the decision can be taken, not when the census looks impressive.** The threshold is whether a practitioner could act from the bottom line, with the caveats stated — not a node count and not a maturity level. A provisional answer resting on `developing` nodes, with its soft spots listed under `## Load-bearing seeds` and its confidence floor set honestly, is more useful than no answer: it exposes exactly which branch needs the next session. Re-run it as the core hardens.
 - **Body contract** — four sections, in the scope's content language:
   - `## Answer` — the synthesis. **It opens with a bottom line**: at most 3 plain-language lines — the verdict, the condition it rides on, the next action. A practitioner must be able to act from those three lines alone; the synthesis that justifies them follows. **Every load-bearing sentence carries an inline snapshot citation**: `…conclusion… ([[node]] hardened · high · g6)`. The deliverable is point-in-time — the node keeps evolving after the sentence is written, so the sentence records what the node *was* when cited.
   - `## Load-bearing seeds` — the seed/developing nodes the answer had to lean on despite their immaturity, each with its snapshot. The answer's soft underbelly, listed rather than hidden.
@@ -517,4 +615,4 @@ The loop hardens *claims*; a **deliverable** is the exit: one page that answers 
 - **Load-bearing = verdict-changing.** A cited claim is load-bearing **iff negating it would change a verdict sentence in `## Answer`** — exactly the set `## What would change this conclusion` enumerates (the two must agree; auditing one audits the other). Background, history, and color citations are not load-bearing and never set the floor.
 - **Confidence propagates from the floor.** Directly under the H1, one header line: `**Confidence:** <floor> — floor set by the weakest load-bearing claim: [[node]] (status · confidence · gen)`. Fixed rule: the deliverable's confidence **is** the minimum confidence among its load-bearing claims (the verdict-changing set above) — deliverable-level optimism is forbidden, and the header names the weakest link so the reader knows exactly where the answer would crack first. When the answer carries several verdict axes (per-method or per-sub-question sections), each axis may state its own floor line over its own load-bearing claims — a strong axis is allowed to look strong; the header floor stays the minimum across axes.
 - **Non-evolving by construction**: no generation, no refuters, excluded from frontier scoring (`boundary-score.py`) and the maturity census; `wiki-lint.py` validates only the §2 keys. Listed in the §11.2 Deliverables table, outside the census.
-- **`reharm:pushing` recommends synthesis** (cascade, before the modal-interchange rule) when ≥5 nodes sit at `hardened`-or-above and the question's deliverable is **absent or stale** — stale = its `updated` predates the newest `E####.md` session (evolution happened after the answer was last derived).
+- **`reharm:pushing` recommends synthesis** (cascade, **above the momentum rule** — see the ordering note in the pushing skill) when an open decision is **answerable** and its deliverable is **absent or stale**. Answerable = the decision has ≥1 load-bearing claim at `hardened`-or-above, no unresolved contradiction among its serving nodes, and no `planned`/`running` experiment that would change the verdict. Stale = the deliverable's `updated` predates the newest `E####.md` session (evolution happened after the answer was last derived). The old threshold — five nodes anywhere in the scope at `hardened`-or-above — measured the census instead of the decision, and sat *below* the frontier/cadence rule that fires in every living scope, so the answer starved indefinitely while the wiki kept hardening.
