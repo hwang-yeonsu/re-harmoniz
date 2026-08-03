@@ -1367,5 +1367,122 @@ class ConditionalRecommendationTest(unittest.TestCase):
         self.assertEqual(findings[0]["match"], "다음 단계")
 
 
+class LegacyScopeCompatibilityTest(unittest.TestCase):
+    """1.0.0's load-bearing promise: a scope written against 0.15.0 — no decision
+    block, no `serves:`, no `pruned` — stays valid with no migration.
+
+    This is the regression test for the whole additive design. If any 1.0.0 rule
+    ever breaks `clean` on a pre-1.0.0 scope, existing users' wikis start failing
+    Phase E lint on a version bump they did not ask for."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self._build_legacy_scope()
+
+    def _build_legacy_scope(self):
+        # a 0.15.0 scope CLAUDE.md: no `Goal & Open Decisions` block at all
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "# Research_legacy\n\n## 1. Purpose & Boundaries\n\n한 단락.\n\n"
+            "## 6. Toggles & Status\n\n- Allowed external wikilinks: 볼트노트\n",
+        )
+        for stem, other in (("구주장A", "구주장B"), ("구주장B", "구주장A")):
+            write(
+                self.scope,
+                f"wiki/claims/{stem}.md",
+                node_text(
+                    title=stem,
+                    status="developing",
+                    confidence="medium",
+                    generation="3",
+                    body=f"본문. [[{other}]] [[볼트노트]]",
+                    extra_fm='sources: ["[[구출처]]"]\nevidence_class: literature',
+                ),
+            )
+        write(
+            self.scope,
+            "wiki/sources/구출처.md",
+            '---\ntype: source\ntitle: "s"\norigin: primary\n---\n요약.\n',
+        )
+        # pre-0.9.0 convention: a question carrying a maturity value
+        write(
+            self.scope,
+            "wiki/questions/구질문.md",
+            '---\ntype: question\ntitle: "q"\nstatus: seed\n---\n예전 status.\n',
+        )
+        write(
+            self.scope,
+            "wiki/experiments/구실험.md",
+            experiment_text(status="imported", claim="[[구주장A]]", body="## Hypothesis\nH.\n"),
+        )
+        write(
+            self.scope,
+            "wiki/index.md",
+            "# Index\n\n**Census:** 2 nodes · seed 0 · developing 2 · hardened 0 · "
+            "evergreen 0 · deprecated 0 (2026-06-12)\n",
+        )
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.md",
+            '---\ntype: meta\ntitle: "E0001"\ncreated: 2026-06-12\nsession: E0001\n---\n# E0001\n',
+        )
+        # §7 schema v2: no decision counters, no `trailing` rows
+        write(
+            self.scope,
+            "wiki/meta/evolution/E0001.eval.json",
+            json.dumps(
+                {
+                    "pass": True,
+                    "score": 0.8,
+                    "checks": {"lint_clean": True, "generation_progress": 2},
+                    "stagnation": {"trailing": [], "verdict": "continue"},
+                }
+            ),
+        )
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_legacy_scope_still_lints_clean(self):
+        data = self.lint()
+        self.assertTrue(data["clean"], data["findings"])
+        breaking = (
+            "missing_frontmatter",
+            "dead_wikilinks",
+            "orphans",
+            "contradictions",
+            "duplicate_stems",
+        )
+        self.assertEqual(
+            {k: data["counts"][k] for k in breaking}, {k: 0 for k in breaking}
+        )
+
+    def test_the_only_new_signal_is_the_undeclared_goal(self):
+        counts = self.lint()["counts"]
+        self.assertEqual(counts["no_decisions_declared"], 1)
+        # with no decisions declared there is nothing to be unassigned against:
+        # firing here would flood every legacy scope with meaningless warnings
+        self.assertEqual(counts["unassigned_claims"], 0)
+        self.assertEqual(counts["unknown_serves_target"], 0)
+
+    def test_pre_existing_tolerances_still_hold(self):
+        counts = self.lint()["counts"]
+        self.assertEqual(counts["legacy_question_status"], 1)  # §2 question legacy
+        self.assertEqual(counts["allowed_external"], 2)  # CLAUDE.md allowlist
+        self.assertEqual(counts["census_drift"], 0)  # census line still matches
+        self.assertEqual(counts["eval_findings"], 0)  # v2 eval still readable
+
+    def test_census_gains_a_pruned_bucket_without_disturbing_legacy_counts(self):
+        census = self.lint()["status_census"]
+        self.assertEqual(census["developing"], 2)
+        self.assertEqual(census["total"], 2)
+        self.assertEqual(census["pruned"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
