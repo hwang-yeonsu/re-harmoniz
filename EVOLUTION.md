@@ -150,9 +150,19 @@ borrowed:
     status_at_mint: hardened
     gen_at_mint: 4
     date: 2026-07-02
+    donor_decision: "D2 settled → adopted mtime, the direction borrowed"   # optional
 ```
 
-Phase A (§4) compares each donor's **current** status/generation against this snapshot; drift (demotion, deprecation, a prune, or a conclusion-changing revision) is a **new objection** on the mashup — the borrowed premise moved under it. A `pruned` donor is drift of a particular kind: it was not refuted, it stopped mattering to *its own* scope (§3), so what the objection records is that nobody maintains or re-verifies that premise any more.
+Phase A (§4) compares each donor's **current** status/generation against this snapshot. **Drift runs both ways.** A demotion, deprecation, prune, or conclusion-changing revision is a **new objection** — the borrowed premise moved under the mashup. A promotion, a survived challenge, or a gained generation is drift too, and absorbing *that* **retires** the inherited objection below and may lift the mashup's confidence floor: the premise the mashup was leaning on got attacked somewhere else and held. Wording matters here because the good direction is the one an implementation forgets — a check that only looks for bad news makes borrowing from an actively-evolving donor all cost and no recovered benefit.
+
+A `pruned` donor is drift of a particular kind: it was not refuted, it stopped mattering to *its own* scope (§3), so what the objection records is that nobody maintains or re-verifies that premise any more. The optional `donor_decision:` line carries what status alone cannot express — which decision the donor served and, once that decision is `settled` or `superseded`, which way it went. A ruling that went **against** the direction borrowed is the drift that matters most and the only one invisible to a status comparison.
+
+**A mashup inherits the state of what it borrows; it never launders it.** Two consequences at mint time, both from §14's floor rule one level down (`confidence` is the minimum over the load-bearing set, and optimism is forbidden):
+
+- **Confidence floor.** The mashup's `confidence` is at most the weakest premise it leans on, borrowed ones included.
+- **An unverified premise is a stated limit.** A load-bearing donor below `developing` in its own scope (nobody has attacked it yet) goes into `## Objections & Limits` naming that state. It is a *current* limit, so it leaves the node the session Phase A absorbs the donor's promotion — which is exactly why borrowing early is legitimate rather than reckless.
+
+The one place this bites is promotion: the §3 `developing → hardened` gate does not open while a **load-bearing** borrowed premise sits below `developing` in its own scope. Verification depth is computed per node (§5.1), so the §5 lenses judge the mashup's own conclusion and never re-judge its imports — without this, a mashup could earn `hardened` on top of an assertion no refuter has ever seen. Minting is free and early borrowing is encouraged; the cost lands where every other quality cost in the protocol lands, at the gate.
 
 **Absorbing drift re-stamps the snapshot** to the donor's state at absorption (`status_at_mint`, `gen_at_mint`, `date`); the mint-time values live on in the E#### report. The snapshot is a baseline, not a history: left un-restamped it makes one donor move re-trigger the same drift on every later Phase A and every `reharm:pushing` run (row 5), which outranks synthesis, the prune sweep and momentum — so a single donor demotion would pin an unattended loop on integrity work that is already done. `wiki-lint.py` validates the subkeys.
 
@@ -294,7 +304,7 @@ One session = one cycle. `reharm:reharmonization` follows this exactly.
 ### Phase A. Retrospect
 1. Read the latest report in `wiki/meta/evolution/` and `hot.md`.
 2. Adversarially re-verify the nodes changed last session (§5). Taking long is fine.
-3. **Borrowed-snapshot check**: for mashups carrying `borrowed:` (§2), compare each donor node's current status/generation against the snapshot — drift is a new objection to absorb this session, and absorbing it **re-stamps the snapshot** to the donor's current state (§2), with the mint-time values recorded in this session's report.
+3. **Borrowed-snapshot check**: for mashups carrying `borrowed:` (§2), compare each donor node's current status/generation against the snapshot. Drift **in either direction** is absorbed this session — a demotion/prune/revision as a new objection, a promotion or survived challenge by retiring the inherited-premise limit and re-checking the confidence floor. Either way, absorbing **re-stamps the snapshot** to the donor's current state (§2), with the mint-time values recorded in this session's report.
 4. Roll back (revise) or demote (deprecated) anything that collapsed. If the last session evaluation (§7) failed, start from its failing checks.
 
 ### Phase B. Target Selection
