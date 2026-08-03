@@ -21,7 +21,10 @@
      · A decision is something you DO, not something the wiki records. "The claim reaches hardened"
        is bookkeeping, not a decision.
      · Statuses are `open`, `settled`, and `superseded`. Anything else reads as open, so a typo can
-       never retire a decision by accident.
+       never retire a decision by accident. The same holds for the row's shape: extra columns are
+       ignored, only the status cell's FIRST WORD is read (`open (2026-07 재확인)` is fine), and a row
+       the linter still cannot read is reported (`unparsed_decision_rows`) rather than dropped — a
+       dropped row would retire its decision and put every claim serving it on the prune queue.
      · `superseded` is for a decision that stopped being the RIGHT QUESTION — reframed, split, or made
        moot — as opposed to one that was answered. Leave its row here, write the successor into its
        text (`→ D4, D5`, or `→ none: moot because …`), and re-bind its claims via /reharm:critique.

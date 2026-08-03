@@ -152,6 +152,32 @@ new evaluator, can come out differently.
   (`duplicate_decision_id`), which is also the ID-reuse signal.
 - `boundary-score.py --page X --serves D` reported `no scoreable page matches 'X'` when X existed but
   did not serve D, which reads as "no such page". The message now names the decision it searched in.
+- **The decision-table parser honoured its own safety rule in only one dimension.** §1 reads an
+  unrecognized *status* as `open`, because retiring a decision makes every node serving it bear on no
+  open decision — which §5.1 reads as depth `none` and §4 Phase C as a prune candidate. The row regex
+  did not extend that reading to a row's *shape*: a fourth column, a qualifier after the status word
+  (`open (2026-07 재확인)`), an escaped pipe in the decision text, or `and` in place of `&` in the
+  heading each dropped the row and silently retired its decision. In a mixed table that also meant
+  `decisions.open` understated what the scope was steering by, so the autonomous loop would pick a
+  different active decision and never work on the lost one. Rows are now split on unescaped pipes with
+  extra columns ignored and the status read by its first word; a row whose first cell is `D<digits>`
+  always declares its decision, and anything still unreadable is reported as `unparsed_decision_rows`
+  (warning) instead of dropped — including decision-shaped rows found under no recognized heading,
+  the one case where "unconfigured" and "misread" were indistinguishable.
+- **The `developing → hardened` gate lost its machine-checkable evidence.** Making
+  `challenges_survived` count both verification depths (§5.1) left the gate's "≥1 full-depth pass"
+  condition witnessed only by prose in the E#### report's `## Verdicts` marks. The optional
+  `full_depth_challenges:` counter (§2) restores it: §4 Phase D increments it at full depth only, and
+  `wiki-lint.py` reports a node at `hardened` or above carrying it at 0 as `gate_without_full_depth`.
+  Absent means a node minted before the key existed, so nothing is asserted and no pre-1.0.0 scope is
+  affected — the check distinguishes "untracked" from "zero".
+- **§7's third `change-strategy` trigger contradicted its own absent-counter rule.** With "a counter
+  absent from an older row reads as 0", a v2 trail satisfies `Σ decisions_settled == 0` and
+  `Σ branches_pruned == 0` automatically, so any generation progress fired the trigger — the opposite
+  of the promise one bullet later that "a v2 trail cannot trigger the new change-strategy case". A
+  healthy pre-1.0.0 scope's first 1.0.0 session would have been told it was stagnating. The trigger now
+  evaluates only when all three trailing rows actually carry the decision counters, which is the one
+  deliberate exception to absent-reads-as-0: an untracked counter is unmeasured, not measured at zero.
 
 ## [0.15.0] — 2026-07-27
 

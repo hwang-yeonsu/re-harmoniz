@@ -1664,5 +1664,260 @@ class LegacyScopeCompatibilityTest(unittest.TestCase):
         self.assertEqual(census["pruned"], 0)
 
 
+class DecisionRowShapeTest(unittest.TestCase):
+    """§1's conservative reading, extended past the status vocabulary.
+
+    The rule is *why*, not *where*: an input the parser cannot read must never
+    silently retire a decision, because retiring one makes every node that
+    serves it bear on no open decision — which §5.1 reads as depth `none` and
+    §4 Phase C reads as a prune candidate. That was implemented for an
+    unrecognized status word; these lock the other shapes a human table takes.
+
+    Anything the parser genuinely cannot bucket is reported as
+    `unparsed_decision_rows` — a warning, so the failure is visible instead of
+    silent, which is the actual guarantee."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _pair(self, *, a_fm="", b_fm=""):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", body="[[노드B]]", extra_fm=a_fm),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드B.md",
+            node_text(title="B", body="[[노드A]]", extra_fm=b_fm),
+        )
+
+    def test_a_notes_column_does_not_retire_the_decision(self):
+        # a 4-column table is the most likely human variation of this block
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "# S\n\n### Goal & Open Decisions\n\n"
+            "| ID | Decision | Status | Notes |\n|---|---|---|---|\n"
+            "| D1 | 어느 백엔드 | open | 급함 |\n"
+            "| D2 | 어느 캐시 | settled | E0004 |\n",
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
+        data = self.lint()
+        self.assertEqual(
+            data["decisions"],
+            {"declared": 2, "open": ["D1"], "settled": ["D2"], "superseded": []},
+        )
+        self.assertEqual(data["counts"]["unparsed_decision_rows"], 0)
+
+    def test_a_status_qualifier_reads_as_its_first_word(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md(
+                "| D1 | 어느 백엔드 | open (2026-07 재확인) |",
+                "| D2 | 어느 캐시 | settled — 근거는 E0004 |",
+                "| D3 | 질문이 바뀜 | superseded → D4 |",
+            ),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["decisions"]["settled"], ["D2"])
+        self.assertEqual(data["decisions"]["superseded"], ["D3"])
+
+    def test_an_escaped_pipe_in_the_decision_text_keeps_the_row(self):
+        # `\|` is markdown's escaped pipe — a superseded row's `→ D4 \| D5`
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md(r"| D1 | 다시 씀 → D4 \| D5 | superseded |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        self.assertEqual(self.lint()["decisions"]["superseded"], ["D1"])
+
+    def test_the_heading_is_recognized_with_and_for_the_ampersand(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "# S\n\n### Goal and Open Decisions\n\n"
+            "| ID | Decision | Status |\n|---|---|---|\n| D1 | 어느 백엔드 | open |\n",
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["counts"]["no_decisions_declared"], 0)
+
+    def test_a_row_too_short_to_read_still_declares_the_decision(self):
+        # the whole point: unreadable shape → still `open`, and reported
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 상태 칸이 없다 |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["counts"]["unparsed_decision_rows"], 1)
+
+    def test_a_short_row_does_not_orphan_the_nodes_that_serve_it(self):
+        # the invariant, stated as the consequence it exists to prevent. The
+        # second (good) row is what makes this falsifiable: it keeps `declared`
+        # above zero so check_serves actually runs, and without the fix D1 is
+        # undeclared and both nodes read as `unknown_serves_target`.
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 상태 칸이 없다 |", "| D2 | 어느 캐시 | open |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        counts = self.lint()["counts"]
+        self.assertEqual(counts["unknown_serves_target"], 0)
+        self.assertEqual(counts["unassigned_claims"], 0)
+
+    def test_a_broken_row_does_not_take_the_good_rows_with_it(self):
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 상태 칸이 없다 |", "| D2 | 어느 캐시 | settled |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D2"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["decisions"]["settled"], ["D2"])
+        self.assertEqual(data["counts"]["unparsed_decision_rows"], 1)
+
+    def test_rows_under_an_unrecognized_heading_are_reported_not_ignored(self):
+        # a heading we cannot match is indistinguishable from no block — except
+        # that the rows are still sitting there, so say so
+        write(
+            self.scope,
+            "CLAUDE.md",
+            "# S\n\n### Decisions We Are Settling\n\n"
+            "| ID | Decision | Status |\n|---|---|---|\n| D1 | 어느 백엔드 | open |\n",
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["declared"], 0)
+        self.assertEqual(data["counts"]["unparsed_decision_rows"], 1)
+
+    def test_a_scope_with_no_block_and_no_rows_reports_nothing_unparsed(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md(heading=False))
+        self._pair()
+        counts = self.lint()["counts"]
+        self.assertEqual(counts["unparsed_decision_rows"], 0)
+        self.assertEqual(counts["no_decisions_declared"], 1)
+
+    def test_a_well_formed_block_reports_nothing_unparsed(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 어느 백엔드 | open |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        self.assertEqual(self.lint()["counts"]["unparsed_decision_rows"], 0)
+
+    def test_a_short_first_row_still_wins_over_a_later_duplicate(self):
+        # the two rules meet here: the short row declares D1 (so it is not
+        # retired) AND holds the ID, so the well-formed repeat is the duplicate —
+        # not the other way round, which would let a recycled ID take the name
+        write(
+            self.scope,
+            "CLAUDE.md",
+            scope_claude_md("| D1 | 상태 칸이 없다 |", "| D1 | 다른 결정 | settled |"),
+        )
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["decisions"]["open"], ["D1"])
+        self.assertEqual(data["decisions"]["settled"], [])
+        self.assertEqual(data["counts"]["duplicate_decision_id"], 1)
+        self.assertEqual(data["counts"]["unparsed_decision_rows"], 1)
+
+    def test_unparsed_rows_never_break_clean(self):
+        write(self.scope, "CLAUDE.md", scope_claude_md("| D1 | 상태 칸이 없다 |"))
+        self._pair(a_fm='serves: ["D1"]', b_fm='serves: ["D1"]')
+        data = self.lint()
+        self.assertEqual(data["counts"]["unparsed_decision_rows"], 1)
+        self.assertTrue(data["clean"])
+
+
+class FullDepthChallengeTest(unittest.TestCase):
+    """§3's `developing → hardened` gate needs **full-depth** evidence, but
+    1.0.0 made `challenges_survived` count both depths (§5.1) — so the counter
+    can no longer answer the question the gate asks.
+
+    `full_depth_challenges:` is the optional counter that can. Absent means a
+    pre-1.0.0 node that never tracked it, so the check stays quiet; present and
+    zero on a node at or above the gate means the gate opened on evidence that
+    does not exist. Warning only."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.scope = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def lint(self) -> dict:
+        proc = run_lint(self.scope)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def _pair(self, *, status="hardened", a_fm="", b_fm=""):
+        write(
+            self.scope,
+            "wiki/claims/노드A.md",
+            node_text(title="A", status=status, body="[[노드B]]", extra_fm=a_fm),
+        )
+        write(
+            self.scope,
+            "wiki/claims/노드B.md",
+            node_text(title="B", status=status, body="[[노드A]]", extra_fm=b_fm),
+        )
+
+    def test_hardened_with_no_full_depth_pass_is_reported(self):
+        self._pair(a_fm="full_depth_challenges: 0", b_fm="full_depth_challenges: 2")
+        data = self.lint()
+        self.assertEqual(data["counts"]["gate_without_full_depth"], 1)
+        self.assertEqual(
+            [f["path"] for f in data["findings"]["gate_without_full_depth"]],
+            ["wiki/claims/노드A.md"],
+        )
+
+    def test_hardened_with_a_full_depth_pass_is_quiet(self):
+        self._pair(a_fm="full_depth_challenges: 1", b_fm="full_depth_challenges: 3")
+        self.assertEqual(self.lint()["counts"]["gate_without_full_depth"], 0)
+
+    def test_evergreen_is_held_to_the_same_gate(self):
+        self._pair(
+            status="evergreen",
+            a_fm="full_depth_challenges: 0",
+            b_fm="full_depth_challenges: 0",
+        )
+        self.assertEqual(self.lint()["counts"]["gate_without_full_depth"], 2)
+
+    def test_a_node_without_the_key_is_quiet(self):
+        # the pre-1.0.0 promise: a legacy hardened node never tracked this
+        self._pair()
+        self.assertEqual(self.lint()["counts"]["gate_without_full_depth"], 0)
+
+    def test_below_the_gate_the_counter_may_be_zero(self):
+        self._pair(
+            status="developing",
+            a_fm="full_depth_challenges: 0",
+            b_fm="full_depth_challenges: 0",
+        )
+        self.assertEqual(self.lint()["counts"]["gate_without_full_depth"], 0)
+
+    def test_a_non_integer_count_is_a_frontmatter_error(self):
+        self._pair(a_fm="full_depth_challenges: 여러 번", b_fm="full_depth_challenges: 1")
+        data = self.lint()
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        self.assertFalse(data["clean"])
+
+    def test_the_gate_signal_never_breaks_clean(self):
+        self._pair(a_fm="full_depth_challenges: 0", b_fm="full_depth_challenges: 0")
+        data = self.lint()
+        self.assertEqual(data["counts"]["gate_without_full_depth"], 2)
+        self.assertTrue(data["clean"])
+
+
 if __name__ == "__main__":
     unittest.main()

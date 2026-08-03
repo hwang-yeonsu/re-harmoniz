@@ -42,6 +42,9 @@ Checks (EVOLUTION.md §4 Phase E.3):
      exists to settle (`| D1 | … | open |` rows under a `Goal & Open Decisions`
      heading) and evolving nodes bind to them via `serves:`. Reported as
      `no_decisions_declared` (only once evolving nodes exist),
+     `unparsed_decision_rows` (a decision-shaped row the parser could not
+     bucket — reported rather than dropped, because a dropped row retires its
+     decision and §4 Phase C then reads its nodes as prune candidates),
      `unknown_serves_target`, and `unassigned_claims` — the queue the pruning
      sweep works from. All warnings; the binding is optional so every
      pre-1.0.0 node stays valid with no migration.
@@ -53,14 +56,20 @@ Checks (EVOLUTION.md §4 Phase E.3):
      and `prune_without_restore_point` (a `pruned` node whose body records no
      `Pruned from <status>:` line, which is what makes §3's reversibility
      executable without reading git). Warnings.
+ 11. promotion evidence (§3, §5.1) — a node at `hardened` or above needs ≥1
+     **full-depth** pass, which `challenges_survived` can no longer witness
+     because it counts both depths. `full_depth_challenges:` (optional int) is
+     that witness; a post-gate node carrying it at 0 is reported as
+     `gate_without_full_depth`. Absent = a node that predates the key, so the
+     check stays quiet. Warning.
 
 `clean` = the five checks all count zero (`unresolved_external`,
 `allowed_external`, `legacy_question_status`, `census_drift`,
 `eval_findings`, `forward_looking_in_node_body`,
 `experiment_missing_decision_at_stake`, `no_decisions_declared`,
-`duplicate_decision_id`, `unknown_serves_target`, `stale_serves_target`,
-`unassigned_claims`, and `prune_without_restore_point` are warnings and
-excluded).
+`unparsed_decision_rows`, `duplicate_decision_id`, `unknown_serves_target`,
+`stale_serves_target`, `unassigned_claims`, `prune_without_restore_point`,
+and `gate_without_full_depth` are warnings and excluded).
 
 Usage:
   wiki-lint.py            # human-readable text
@@ -142,7 +151,12 @@ QUESTION_STATUSES = {"open", "answered", "escalated", "archived"}
 # baseline reharmonization Phase A compares against.
 BORROWED_KEYS = ("node", "scope", "status_at_mint", "gen_at_mint", "date")
 DATE_KEYS = ("created", "updated", "last_challenged")
-INT_KEYS = ("generation", "challenges_survived")
+INT_KEYS = ("generation", "challenges_survived", "full_depth_challenges")
+# §3 statuses at or above the `developing → hardened` gate. The gate needs
+# **full-depth** evidence (§5.1), but `challenges_survived` counts both depths
+# since 1.0.0 and so can no longer answer that question — `full_depth_challenges`
+# is the counter that can. Optional: absent means a node that never tracked it.
+POST_GATE_STATUSES = ("hardened", "evergreen")
 # §3 maturity ladder, in census display order (claims + mashups only).
 MATURITY_STATUSES = (
     "seed",
@@ -676,12 +690,39 @@ def load_external_allowlist() -> set[str]:
 
 # §10 goal/decision block: `| D1 | <decision> | open |` rows under a
 # `Goal & Open Decisions` heading in the scope CLAUDE.md. Optional section
-# numbering ("### 1.1 Goal & Open Decisions") is tolerated.
+# numbering ("### 1.1 Goal & Open Decisions") is tolerated, as is `and` for `&`.
 DECISION_HEADING_RE = re.compile(
-    r"^#{1,6}\s*(?:[\d.\s]*)?Goal\s*&\s*Open\s+Decisions\s*$", re.IGNORECASE
+    r"^#{1,6}\s*(?:[\d.\s]*)?Goal\s*(?:&|and)\s*Open\s+Decisions\s*$", re.IGNORECASE
 )
-DECISION_ROW_RE = re.compile(r"^\|\s*(D\d+)\s*\|[^|]*\|\s*([A-Za-z][A-Za-z-]*)\s*\|\s*$")
+# Split a markdown table row on **unescaped** pipes only: `\|` is a literal pipe
+# inside a cell, which a superseded row's successor pointer uses (`→ D4 \| D5`).
+TABLE_PIPE_RE = re.compile(r"(?<!\\)\|")
+DECISION_ID_RE = re.compile(r"^D\d+$")
+# The status cell's FIRST WORD decides, so a qualifier after it — `open (2026-07
+# 재확인)`, `settled — 근거는 E0004` — does not make the row unreadable. §1's
+# conservative reading only holds if a row that names an ID always lands in a
+# bucket; a row that falls out of the table entirely retires its decision, which
+# is the one outcome the reading exists to prevent.
+DECISION_STATUS_RE = re.compile(r"^([A-Za-z][A-Za-z-]*)")
 ANY_HEADING_RE = re.compile(r"^#{1,6}\s")
+
+
+def split_table_cells(line: str) -> list[str]:
+    """Cells of a markdown table row, or `[]` for a line that is not one.
+
+    Splits on unescaped pipes and drops the single empty part each delimiting
+    pipe contributes, so `| a | b |` reads as two cells and a deliberately empty
+    trailing cell (`| a | b |  |`) survives as the third.
+    """
+    s = line.strip()
+    if not s.startswith("|"):
+        return []
+    parts = TABLE_PIPE_RE.split(s)
+    if parts and parts[0].strip() == "":
+        parts = parts[1:]
+    if parts and parts[-1].strip() == "":
+        parts = parts[:-1]
+    return [p.strip() for p in parts]
 # §1 decision lifecycle. `open` is the default reading; the other two are the
 # terminal states, and they mean different things:
 #   settled    — the decision was taken. Its branches are prune candidates.
@@ -694,17 +735,23 @@ ANY_HEADING_RE = re.compile(r"^#{1,6}\s")
 DECISION_TERMINAL_STATUSES = ("settled", "superseded")
 
 
-def load_declared_decisions() -> tuple[dict, list[dict]]:
+def load_declared_decisions() -> tuple[dict, list[dict], list[dict]]:
     """The decisions this scope exists to settle, from the scope CLAUDE.md (§10).
 
     Rows live under a `Goal & Open Decisions` heading; parsing stops at the next
-    heading, so a D-shaped table row in a later section cannot leak in. The table
-    header and separator rows never match (the first cell must be `D<digits>`).
+    heading, so a D-shaped table row in a later section cannot leak in. A row is
+    a decision when its **first cell** is `D<digits>` — which is what keeps the
+    table's header and separator rows out — and extra columns past the third are
+    ignored, so a `Notes` column is just a column.
 
-    A row whose status is none of `open` / `settled` / `superseded` counts as
-    **open** — the conservative reading, because an unrecognized status must
-    never silently retire a decision, which would in turn let a node be pruned
-    against a decision nobody closed.
+    **No readable row ever loses its decision.** A status that is none of `open`
+    / `settled` / `superseded` counts as open; so does a status cell carrying a
+    qualifier after the word, an absent status cell, and a row too short to have
+    one. The reason is a causal chain, not tidiness: retiring a decision makes
+    every node that serves it bear on no open decision, which §5.1 reads as
+    depth `none` and §4 Phase C reads as a prune candidate. A parse failure must
+    therefore never retire a decision — it must become **visible** instead,
+    which is what `unparsed_decision_rows` is for.
 
     A repeated ID keeps its **first** row and is reported as a duplicate. That
     is the ID-reuse signal: a retired decision whose row was deleted so a new
@@ -712,16 +759,23 @@ def load_declared_decisions() -> tuple[dict, list[dict]]:
     something it was never about.
 
     Returns `({"declared": N, "open": [...], "settled": [...],
-    "superseded": [...]}, duplicates)`; an absent block (or absent CLAUDE.md)
-    yields zero declared decisions, and every `serves:` check below then stays
-    quiet — a scope that has not declared its goal yet is not in violation, it
-    is unconfigured (§10).
+    "superseded": [...]}, duplicates, unparsed)`. An absent CLAUDE.md, or one
+    with no recognizable block, yields zero declared decisions and every
+    `serves:` check below then stays quiet — a scope that has not declared its
+    goal yet is not in violation, it is unconfigured (§10). Decision-shaped rows
+    found while no heading matched are reported under `unparsed`, since that is
+    the one case where "unconfigured" and "misread" look identical from here.
     """
     buckets: dict = {"open": [], "settled": [], "superseded": []}
     duplicates: list[dict] = []
+    unparsed: list[dict] = []
 
-    def result() -> tuple[dict, list[dict]]:
-        return {"declared": sum(len(v) for v in buckets.values()), **buckets}, duplicates
+    def result() -> tuple[dict, list[dict], list[dict]]:
+        return (
+            {"declared": sum(len(v) for v in buckets.values()), **buckets},
+            duplicates,
+            unparsed,
+        )
 
     claude_md = SCOPE_ROOT / "CLAUDE.md"
     if not claude_md.is_file():
@@ -734,15 +788,30 @@ def load_declared_decisions() -> tuple[dict, list[dict]]:
         (i for i, line in enumerate(lines) if DECISION_HEADING_RE.match(line)), None
     )
     if start is None:
+        for line in lines:
+            cells = split_table_cells(line)
+            if cells and DECISION_ID_RE.match(cells[0]):
+                unparsed.append(
+                    {
+                        "path": "CLAUDE.md",
+                        "id": cells[0],
+                        "issue": f"`{cells[0]}` sits in a table row but under no "
+                        "recognized `Goal & Open Decisions` heading, so it "
+                        "declares nothing (§10)",
+                        "hint": "this is very likely why `no_decisions_declared` "
+                        "fired: rename the heading to `### Goal & Open "
+                        "Decisions` so the rows are read",
+                    }
+                )
         return result()
     seen: set[str] = set()
     for line in lines[start + 1 :]:
         if ANY_HEADING_RE.match(line):
             break
-        m = DECISION_ROW_RE.match(line.strip())
-        if not m:
+        cells = split_table_cells(line)
+        if not cells or not DECISION_ID_RE.match(cells[0]):
             continue
-        did, status = m.group(1), m.group(2).lower()
+        did = cells[0]
         if did in seen:
             duplicates.append(
                 {
@@ -758,6 +827,20 @@ def load_declared_decisions() -> tuple[dict, list[dict]]:
             )
             continue
         seen.add(did)
+        if len(cells) < 3:
+            unparsed.append(
+                {
+                    "path": "CLAUDE.md",
+                    "id": did,
+                    "issue": f"`{did}` has no status cell — the row carries "
+                    f"{len(cells)} cells, and a decision row needs three (§10)",
+                    "hint": "counted as `open` so the decision is not retired by "
+                    "a table typo; write `| "
+                    f"{did} | <decision> | open｜settled｜superseded |`",
+                }
+            )
+        sm = DECISION_STATUS_RE.match(cells[2]) if len(cells) >= 3 else None
+        status = sm.group(1).lower() if sm else ""
         bucket = status if status in DECISION_TERMINAL_STATUSES else "open"
         buckets[bucket].append(did)
     return result()
@@ -876,6 +959,45 @@ def check_prune_restore_point(node_pages: list[dict]) -> list[dict]:
     return findings
 
 
+def check_gate_full_depth(node_pages: list[dict]) -> list[dict]:
+    """§3: a node at or above `hardened` survived ≥1 **full-depth** pass (§5.1).
+
+    Before 1.0.0 `challenges_survived` was a faithful proxy for that, because
+    there was only one depth. Now it counts the single-lens tier too, so the gate
+    reads its evidence from the E#### report's depth marks (§4 Phase D) — prose
+    no script can check. `full_depth_challenges:` is that evidence as a counter.
+
+    Absent = a node that predates the key, so nothing is asserted and the check
+    stays quiet; present and zero on a post-gate node means the promotion has no
+    full-depth pass behind it. Warning only — the fix is a verification pass or a
+    demotion, both owner calls, and a pre-1.0.0 scope carries the key nowhere.
+    """
+    findings: list[dict] = []
+    for page in node_pages:
+        if page["kind"] not in EVOLVING_DIRS:
+            continue
+        fm = page["fm"] or {}
+        if fm.get("status") not in POST_GATE_STATUSES:
+            continue
+        raw = fm.get("full_depth_challenges")
+        if raw is None or (isinstance(raw, str) and not raw.isdigit()):
+            continue  # absent, or already reported by the frontmatter check
+        if int(raw) > 0:
+            continue
+        findings.append(
+            {
+                "path": page["path"],
+                "status": fm.get("status"),
+                "issue": f"`{fm.get('status')}` with `full_depth_challenges: 0` — "
+                "the §3 gate needs ≥1 full-depth pass (§5.1), and "
+                "`challenges_survived` counts both depths so it cannot stand in",
+                "hint": "run a full-depth pass (all three lenses) and increment "
+                "the counter, or demote the node to `developing`",
+            }
+        )
+    return findings
+
+
 def check_eval() -> list[dict]:
     """Validate the LATEST session's `E####.eval.json` against §7 schema v2:
     `pass` must be a boolean and `stagnation.verdict` one of the fixed enum.
@@ -953,9 +1075,10 @@ def run(want_json: bool) -> int:
     status_census = compute_status_census(node_pages)
     census_drift = check_census_drift(status_census)
     eval_findings = check_eval()
-    decisions, duplicate_decisions = load_declared_decisions()
+    decisions, duplicate_decisions, unparsed_decisions = load_declared_decisions()
     unknown_serves, stale_serves, unassigned_claims = check_serves(node_pages, decisions)
     prune_restore = check_prune_restore_point(node_pages)
+    gate_full_depth = check_gate_full_depth(node_pages)
     # an undeclared goal only matters once there is something to steer (§10);
     # a freshly scaffolded, empty scope stays quiet
     no_decisions = (
@@ -987,11 +1110,13 @@ def run(want_json: bool) -> int:
         "forward_looking_in_node_body": len(forward_looking),
         "experiment_missing_decision_at_stake": len(no_decision),
         "no_decisions_declared": len(no_decisions),
+        "unparsed_decision_rows": len(unparsed_decisions),
         "duplicate_decision_id": len(duplicate_decisions),
         "unknown_serves_target": len(unknown_serves),
         "stale_serves_target": len(stale_serves),
         "unassigned_claims": len(unassigned_claims),
         "prune_without_restore_point": len(prune_restore),
+        "gate_without_full_depth": len(gate_full_depth),
     }
     clean = all(
         counts[k] == 0
@@ -1026,11 +1151,13 @@ def run(want_json: bool) -> int:
             "forward_looking_in_node_body": forward_looking,
             "experiment_missing_decision_at_stake": no_decision,
             "no_decisions_declared": no_decisions,
+            "unparsed_decision_rows": unparsed_decisions,
             "duplicate_decision_id": duplicate_decisions,
             "unknown_serves_target": unknown_serves,
             "stale_serves_target": stale_serves,
             "unassigned_claims": unassigned_claims,
             "prune_without_restore_point": prune_restore,
+            "gate_without_full_depth": gate_full_depth,
         },
     }
 
@@ -1067,6 +1194,10 @@ def run(want_json: bool) -> int:
             no_decision,
         ),
         ("no declared decisions (warning — §10 goal block)", no_decisions),
+        (
+            "decision rows the parser could not read (warning — §10 block shape)",
+            unparsed_decisions,
+        ),
         ("decision IDs declared twice (warning — §1)", duplicate_decisions),
         ("serves: naming an undeclared decision (warning — §2)", unknown_serves),
         (
@@ -1080,6 +1211,10 @@ def run(want_json: bool) -> int:
         (
             "pruned without a restore point (warning — §3 reversibility)",
             prune_restore,
+        ),
+        (
+            "hardened+ without a full-depth pass (warning — §3 gate, §5.1)",
+            gate_full_depth,
         ),
     ):
         print(f"\n## {label}: {len(items)}")
