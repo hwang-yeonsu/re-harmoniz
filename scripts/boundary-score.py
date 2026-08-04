@@ -155,7 +155,16 @@ def parse_list_key(fm_raw: str, key_re: re.Pattern) -> list[str]:
                 for p in inner.split(",")
                 if p.strip().strip("\"'")
             ]
-        return [inline.strip("\"'")]
+        # A bare scalar, or a bare comma-separated list (`serves: D1, D2`), which
+        # wiki-lint.py's parse_list_entries also splits on the comma. The two
+        # scripts read the same key, so a disagreement here is silent: the linter
+        # would call the node bound while it dropped out of every `--serves`
+        # frontier — including the frontiers of the decisions it names.
+        return [
+            p.strip().strip("\"'")
+            for p in inline.split(",")
+            if p.strip().strip("\"'")
+        ]
     entries: list[str] = []
     for line in fm_raw[m.end():].splitlines():
         dm = re.match(r"^\s*-\s+(\S.*)$", line)

@@ -402,8 +402,15 @@ def check_frontmatter(pages: list[dict]) -> list[dict]:
             if isinstance(val, str) and val not in allowed:
                 invalid[key] = val
         for key in INT_KEYS:
-            val = fm.get(key)
-            if isinstance(val, str) and not val.isdigit():
+            if key not in fm:
+                continue
+            val = fm[key]
+            # A key written with nothing after it (`full_depth_challenges:`) parses
+            # as an empty LIST, not a string — so a type check alone let it through
+            # unreported, and `check_gate_full_depth` then reached `int([])`. A
+            # count that is present but unreadable is a frontmatter error whatever
+            # shape it parsed into; nothing downstream may guess at its value.
+            if not isinstance(val, str) or not val.isdigit():
                 invalid[key] = val
         for key in DATE_KEYS:
             val = fm.get(key)
@@ -980,8 +987,12 @@ def check_gate_full_depth(node_pages: list[dict]) -> list[dict]:
         if fm.get("status") not in POST_GATE_STATUSES:
             continue
         raw = fm.get("full_depth_challenges")
-        if raw is None or (isinstance(raw, str) and not raw.isdigit()):
-            continue  # absent, or already reported by the frontmatter check
+        # Only a readable count is read. Absent means a node that predates the
+        # key; anything else present is unreadable and already reported by the
+        # frontmatter check, and an unreadable count is NOT a zero — reading it
+        # as one would accuse the node of a promotion it may well have earned.
+        if not isinstance(raw, str) or not raw.isdigit():
+            continue
         if int(raw) > 0:
             continue
         findings.append(

@@ -1912,6 +1912,38 @@ class FullDepthChallengeTest(unittest.TestCase):
         self.assertEqual(data["counts"]["missing_frontmatter"], 1)
         self.assertFalse(data["clean"])
 
+    def test_an_empty_count_is_a_frontmatter_error_not_a_crash(self):
+        # `full_depth_challenges:` with nothing after it parses as an empty LIST,
+        # not a string, so the int-key check used to skip it and the gate check
+        # then reached `int([])`. An unreadable counter must be reported like any
+        # other malformed value — and must never read as zero, which would
+        # accuse the node of a promotion it may well have earned.
+        self._pair(a_fm="full_depth_challenges:", b_fm="full_depth_challenges: 1")
+        data = self.lint()
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        self.assertEqual(
+            [f["path"] for f in data["findings"]["missing_frontmatter"]],
+            ["wiki/claims/노드A.md"],
+        )
+        self.assertIn(
+            "full_depth_challenges",
+            data["findings"]["missing_frontmatter"][0]["invalid"],
+        )
+        self.assertEqual(data["counts"]["gate_without_full_depth"], 0)
+        self.assertFalse(data["clean"])
+
+    def test_a_block_list_count_is_a_frontmatter_error_not_a_crash(self):
+        self._pair(
+            a_fm="full_depth_challenges:\n  - 2", b_fm="full_depth_challenges: 1"
+        )
+        data = self.lint()
+        self.assertEqual(data["counts"]["missing_frontmatter"], 1)
+        self.assertIn(
+            "full_depth_challenges",
+            data["findings"]["missing_frontmatter"][0]["invalid"],
+        )
+        self.assertEqual(data["counts"]["gate_without_full_depth"], 0)
+
     def test_the_gate_signal_never_breaks_clean(self):
         self._pair(a_fm="full_depth_challenges: 0", b_fm="full_depth_challenges: 0")
         data = self.lint()

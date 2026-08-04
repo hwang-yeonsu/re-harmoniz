@@ -272,6 +272,27 @@ class ServesFilterTest(unittest.TestCase):
         self.assertIn("D1", proc.stdout)
         self.assertNotIn("결정2노드", proc.stdout)
 
+    def test_a_bare_comma_separated_serves_reads_as_two_bindings(self):
+        # `wiki-lint.py` splits a bare `serves: D1, D2` on the comma, so a node
+        # written that way lints as bound to both. If this script read it as the
+        # single ID "D1, D2" instead, the node would vanish from BOTH decision
+        # frontiers while the linter reported it as properly bound — the two
+        # tools have to agree on the key or the disagreement is silent.
+        write_node(
+            self.scope, "wiki/claims/맨쉼표노드.md", title="bare",
+            updated=self.today, body="[[싱크A]] [[싱크B]]",
+            extra_fm="serves: D1, D2",
+        )
+        for sink in ("싱크A", "싱크B"):
+            write_node(
+                self.scope, f"wiki/claims/{sink}.md", title=sink, updated=self.today
+            )
+        by_key = {r["title_key"]: r for r in self._rows()}
+        self.assertEqual(by_key["맨쉼표노드"]["serves"], ["D1", "D2"])
+        for decision in ("D1", "D2"):
+            keys = [r["title_key"] for r in self._rows("--serves", decision)]
+            self.assertEqual(keys, ["맨쉼표노드"])
+
     def test_page_missing_from_the_filtered_set_says_which_decision(self):
         # the page exists; it just does not serve D2. "no page matches" alone
         # reads as "no such page", which sends the reader looking for a typo.
