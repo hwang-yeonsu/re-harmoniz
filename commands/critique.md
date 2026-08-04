@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz adjudication — gather the ambiguous backlog (open questions, stalled low-confidence nodes, unresolved contradictions, lint warnings) and resolve it through a user interview."
+description: "re:Harmoniz adjudication and pruning — gather the ambiguous backlog (open questions, stalled low-confidence nodes, unresolved contradictions, lint warnings) plus the prune queue (nodes bearing on no open decision) and resolve both through a user interview."
 ---
 
 # reharm:critique — User Adjudication of the Ambiguous Backlog

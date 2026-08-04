@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz next-step advisor (read-only) — inspects a scope's wiki + evolution state and recommends which skill to run next, with the evidence that triggered it."
+description: "re:Harmoniz next-step advisor (read-only) — inspects a scope's declared decisions plus its wiki state and recommends which skill to run next, with the evidence that triggered it. Ordered so realizing earned value or lowering future cost outranks adding work."
 ---
 
 # reharm:pushing — Next-Step Advisor (read-only)

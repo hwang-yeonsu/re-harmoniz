@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz cross-scope mashup — borrow knowledge across two research scopes and mint cross-domain insights, like borrowing chords from a parallel mode."
+description: "re:Harmoniz cross-scope mashup — borrow knowledge across two research scopes and mint cross-domain insights, like borrowing chords from a parallel mode. A crossover serving no open decision becomes a question, not a mashup."
 ---
 
 # reharm:modal-interchange — Cross-Scope Mashup

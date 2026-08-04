@@ -15,7 +15,7 @@
 
 매 스텝은 세 동작입니다:
 
-1. **JUDGE** — `reharm:pushing`이 스코프(frontier 점수, lint 상태, 성숙도 census, 직전
+1. **JUDGE** — 활성 결정을 먼저 해소하고, `reharm:pushing`이 스코프(결정별 frontier 점수, 가지치기 대기열, lint 상태, 성숙도 census, 직전
    stagnation 판정)를 **읽기 전용**으로 점검하고 다음 액션을 지목합니다.
 2. **ACT** — 추천된 스킬 하나만 실행합니다: `root` / `reharmonization` / `critique` /
    `modal-interchange` / `experiment-design` / `ensemble`. 스킬이 원래 사용자에게 넘기던
@@ -51,7 +51,7 @@ override는 *당신이* 파일을 복사해야만 작동합니다. 하는 일은
 |---|------|---------|
 | 00 | **LOCK** | `<ledger>.lock`이 있으면 다른 iteration 진행 중 → `STOP("overlap")`. 없으면 생성. |
 | 01 | **LOAD** | 원장 꼬리를 읽어 `N`(완료 횟수) 복구. `MAX_ITERS ≠ inf`이고 `N ≥ MAX_ITERS`면 → `STOP("count-reached")`. |
-| 02 | **JUDGE** | `/reharm:pushing` 실행. 다음 액션 `R`, 근거, 최신 stagnation 판정을 취함. `R = current` → `STOP("nothing-pending")`; 판정 ∈ `STOP_ON` → `STOP("stagnation:…")`. |
+| 02 | **JUDGE** | 스코프 `CLAUDE.md`의 `### Goal & Open Decisions` 블록에서 **활성 결정**을 먼저 해소 — 열린 결정이 없으면 `STOP("no-decisions")`. 그다음 `/reharm:pushing` 실행. 다음 액션 `R`, 근거, 최신 stagnation 판정을 취함. `R = current` → `STOP("nothing-pending")`; 판정 ∈ `STOP_ON` → `STOP("stagnation:…")`. `R`이 "목표 선언"이면 → `STOP("no-decisions")` (그 블록을 쓰는 건 소유자 몫). |
 | 03 | **ACT** | `R`에 대해 **정확히 하나**의 액션 수행. 모든 선택은 DECISION POLICY대로 자동. |
 | 04 | **RECORD** | 원장에 JSONL 한 줄 추가. 루프의 **유일한** 상태. |
 | 05 | **UNLOCK** | `<ledger>.lock` 제거. |
@@ -150,6 +150,8 @@ Auto-compact; 환경변수에 `DISABLE_AUTO_COMPACT` 없음). 매 tick마다 com
 
 되돌리기 버튼 없는 자율은 무모합니다. 계약에 여섯을 박아 두었습니다:
 
+- **스스로 목표를 만들어 내지 못합니다.** 매 tick이 스코프가 선언한 결정을 읽고 그중 하나를 기준으로 움직입니다. 열린 결정이 없으면 표적을 고르는 대신 깨끗하게 멈춥니다(`STOP("no-decisions")`). 루프는 결정을 매듭짓지도, 새로 쓰지도 않습니다 — 목표를 스스로 쓰는 루프는 눈에 띈 아무거나 최적화하게 되고, 그게 바로 무인 실행이 눈치채지 못하는 실패입니다.
+- **무인 상태의 가지치기는 보수적입니다.** 루프가 자동으로 자르는 건 명백한 경우뿐입니다(노드가 걸린 결정이 전부 `settled`이거나, 설계 결정이 그 가지를 무너뜨린 경우). *배정이 빈* 노드는 절대 자동으로 자르지 않습니다 — `serves:` 누락은 대개 묶는 걸 빠뜨린 것이고, 그걸 자르면 비용을 덜어 내는 게 아니라 할 일을 숨기게 됩니다. 그런 건 `questions/`에 사람용으로 적재하고, 두 개수 모두 원장에 남습니다(`pruned`, `needs_binding`).
 - **per-scope lock** — `<ledger>.lock`(iteration 시작 ts 보관)이 스코프당 루프 하나만 허용. 동시 발화는 `STOP("overlap")`으로 빠짐. 모든 stop은 종료 전 UNLOCK하고, ~1h보다 오래된 lock은 죽은 iteration으로 간주해 회수 — 크래시 한 번이 스코프를 데드락시키지 않음.
 - **외부 원장** — 원장은 스코프 **바깥** `<project>/.reharm-loop/`에 둠. `EVOLUTION.md` §8이 스코프 안 상태파일을 금하고, 밖에 두면 `wiki-lint`가 orphan으로 잡지도 않음.
 - **되돌릴 수 있는 deprecate** — 노드를 버릴 때도 **상태 플립**일 뿐 삭제가 아님. 루프는 노드의 세대(generation)를 올리지 않음.

@@ -1,8 +1,8 @@
 {
   "name": "reharm",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "license": "MIT",
-  "description": "re:Harmoniz — an evolution loop for research wikis. Knowledge nodes (claims) harden generation by generation under mutation (revision) and natural selection (adversarial verification). Ships 7 skills: root (scaffold + atomic seeding), reharmonization (5-phase evolution session), modal-interchange (cross-scope mashup), critique (user adjudication of ambiguous nodes), pushing (read-only next-step advisor), experiment-design (field-experiment pre-registration), ensemble (answer synthesis into citable deliverables). Also ships an opt-in autonomous loop template (templates/loop.md) that drives these skills unattended via the native /loop command, plus loop-setup — a wizard that configures and starts that loop in one command. Self-contained: web search uses native tools; frontier scoring and wiki lint ship as stdlib scripts.",
+  "description": "re:Harmoniz — a research loop that settles decisions. A scope declares the decisions it exists to settle; claims are the branches under them. Sources become claims only where a decision rests on them, verification depth follows what rests on each node (3 refuters if load-bearing, 1 lens if supporting, none if unbound), and branches nothing is waiting on are pruned — a status distinct from deprecated, because \"nothing depends on this\" is not \"this was wrong\". Progress is counted in decisions settled and branches pruned. Ships 7 skills: root (scaffold + decision-gated seeding), reharmonization (5-phase session serving one decision), modal-interchange (cross-scope mashup), critique (adjudication + pruning), pushing (read-only next-step advisor), experiment-design (field-experiment pre-registration), ensemble (answer synthesis into citable deliverables). Also ships an opt-in autonomous loop template (templates/loop.md) that drives these skills unattended via the native /loop command — and refuses to run a scope with no open decision — plus loop-setup, a wizard that configures and starts that loop in one command. Self-contained: web search uses native tools; frontier scoring and wiki lint ship as stdlib scripts.",
   "author": {
     "name": "hwang-yeonsu",
     "url": "https://github.com/hwang-yeonsu"
@@ -11,9 +11,9 @@
   "repository": "https://github.com/hwang-yeonsu/re-harmoniz",
   "keywords": [
     "research-wiki",
+    "decision-driven-research",
     "evolution-loop",
     "knowledge-base",
-    "zettelkasten",
     "adversarial-verification",
     "llm-wiki"
   ],

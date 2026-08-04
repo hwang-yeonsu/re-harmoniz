@@ -1,6 +1,6 @@
 ---
 name: loop-setup
-description: "re:Harmoniz autonomous-loop wizard — one command from zero to a running loop: detects the scope, interviews you for the CONFIG choices, validates the experiment gate up front, writes .claude/loop.md, then starts the native /loop in the same invocation. Triggers: reharm loop setup, set up the autonomous loop, start the evolution loop, run the loop, 자율 루프 설정, 루프 설정, 루프 시작, 자율 모드 시작"
+description: "re:Harmoniz autonomous-loop wizard — one command from zero to a running loop: detects the scope, checks it declares at least one open decision, interviews you for the CONFIG choices, validates the experiment gate up front, writes .claude/loop.md, then starts the native /loop in the same invocation. Triggers: reharm loop setup, set up the autonomous loop, start the evolution loop, run the loop, 자율 루프 설정, 루프 설정, 루프 시작, 자율 모드 시작"
 ---
 
 # reharm:loop-setup — Autonomous-Loop Wizard (setup → start, one command)
@@ -29,6 +29,14 @@ loop starts.
    for directories containing both `.raw/` and `wiki/`. Exactly one → confirm it; several → ask
    which (plus which, if any, is the `SIBLING_SCOPE` donor); none → stop and point to
    `reharm:root` (there is nothing to evolve yet).
+2b. **Goal gate — the loop will not start unsteered.** Run
+   `python3 "${CLAUDE_SKILL_DIR}/../../scripts/wiki-lint.py" --json` from the scope root and read
+   its `decisions` block. `declared: 0` (or every decision already `settled`) → **stop** and point
+   to the scope `CLAUDE.md` `### Goal & Open Decisions` block (EVOLUTION.md §1/§10). This is not a
+   warning here, unlike in the manual skills: an unattended loop auto-picks its own targets, and
+   with no open decision to steer by it will spend real tokens hardening whatever tops the frontier.
+   A human can notice that in one session; a loop cannot. Show the open decisions and confirm them
+   before continuing — they are what every tick is measured against.
 3. **Derive, don't ask.** Compute and display — but do not question — the mechanical fields:
    - `LEDGER` = `<project>/.reharm-loop/<scope-name>.jsonl` (outside the scope, per EVOLUTION.md §8)
    - `MAX_TARGETS` = 2 (the auditability default)
@@ -72,7 +80,8 @@ loop starts.
 - **Never overwrite silently.** An existing `.claude/loop.md` is replaced only after showing the
   CONFIG diff and getting explicit confirmation; a fresh `<LEDGER>.lock` stops the wizard.
 - **Validate at the boundary.** A scope without `.raw/` + `wiki/` is rejected here, not at tick 1;
-  an impossible experiment gate is surfaced here, not at iteration N.
+  a scope with no open decision is rejected here, not after N ticks of unsteered hardening; an
+  impossible experiment gate is surfaced here, not at iteration N.
 - **One scope per loop.** If the user wants a second loop, it must target a different scope
   (the ledger lock enforces this at runtime anyway).
 - **This skill decides nothing about knowledge.** It writes configuration and starts the loop;

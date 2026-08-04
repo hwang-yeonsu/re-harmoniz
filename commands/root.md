@@ -1,5 +1,5 @@
 ---
-description: "re:Harmoniz — scaffold a research scope and/or seed it (repo URL, article, pseudocode, note, or rough idea → .raw/ → atomic claim nodes)."
+description: "re:Harmoniz — scaffold a research scope (asking what decisions it exists to settle) and/or seed it: repo URL, article, pseudocode, note, or rough idea → .raw/ → claim nodes, minted only where the source bears on a declared decision."
 ---
 
 # reharm:root — Scaffold & Atomic Seeding
