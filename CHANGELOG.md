@@ -4,7 +4,7 @@ All notable changes to the `reharm` plugin are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] — 2026-08-03
+## [1.0.0] — 2026-08-04
 
 **The protocol optimized the wrong thing.** It graded propositions on truth and counted generations
 as progress, so a scope could harden five nodes a session while every decision it existed to settle
@@ -89,6 +89,25 @@ new evaluator, can come out differently.
   §11.1 session report; a **Decisions** table and a `Serves` column in the §11.2 index template.
 - **`no-decisions`** STOP reason for the autonomous loop — a clean stop, not a failure. The loop
   never writes or settles a decision: one that invents its own goals optimizes whatever it finds.
+- **A mashup inherits its donors' state instead of laundering it** (§2, `modal-interchange`):
+  `confidence` is capped by the weakest premise it leans on, borrowed ones included (§14's floor rule
+  one level down); a load-bearing donor still below `developing` in its own scope is a **stated
+  limit** in `## Objections & Limits`; and the §3 `developing → hardened` gate does not open while
+  such a premise is unverified at home. Verification depth is computed per node (§5.1), so the §5
+  lenses judge a mashup's own conclusion and never re-judge its imports — without this a mashup could
+  reach `hardened` on top of an assertion no refuter has ever seen. Minting stays free and early
+  borrowing stays encouraged: the cost lands at the gate, where every other quality cost lands, and
+  the limit is *current* — Phase A retires it the session the donor's promotion arrives.
+- **Borrowed drift is absorbed in both directions** (§2, §4 Phase A). A donor promotion, survived
+  challenge, or gained generation retires the inherited-premise limit and re-checks the confidence
+  floor. §2/§4 previously enumerated only demotion, deprecation and revision — all bad news — so the
+  one direction that recovers the benefit of borrowing early was invisible to an implementation
+  reading those lists. `pruned` is now named in that list too, as drift of its own kind: the premise
+  was not refuted, it stopped mattering to its own scope, so nobody maintains or re-verifies it.
+- **`donor_decision:`** (§2, optional `borrowed:` subkey): which decision the donor served and, once
+  that decision is `settled` or `superseded`, which way it went. A ruling that went **against** the
+  direction borrowed is the drift that matters most and the only one a status comparison cannot
+  express. `validate_borrowed` ignores unknown subkeys, so existing snapshots stay valid unchanged.
 
 ### Changed
 
@@ -128,6 +147,10 @@ new evaluator, can come out differently.
   instead of minting a mashup; `reharm:experiment-design` starts from the declared decision and notes
   the gate is now scope-wide; `reharm:loop-setup` refuses to start a loop on a scope with no open
   decision, validating at the boundary rather than after N ticks.
+- **Magnitudes do not cross domains, only forms do** (`modal-interchange`, `evidence_class`):
+  `literature` stands when the borrowed conclusion *is* the form — an axis, a mechanism, an asymmetry
+  — and both sides document it; declare `field` when the conclusion turns on a rate or a size that
+  exists only in the requesting scope, because the borrowed half cannot supply it.
 - The autonomous loop resolves an active decision every tick (closest-to-answerable, tie → lowest ID)
   and **auto-prunes conservatively**: never an unassigned node, whose counts go to the ledger as
   `needs_binding` for a human.
@@ -178,6 +201,38 @@ new evaluator, can come out differently.
   healthy pre-1.0.0 scope's first 1.0.0 session would have been told it was stagnating. The trigger now
   evaluates only when all three trailing rows actually carry the decision counters, which is the one
   deliberate exception to absent-reads-as-0: an untracked counter is unmeasured, not measured at zero.
+- **Borrowed drift never cleared — it latched.** Phase A compared each donor's current state against
+  the `borrowed:` snapshot and absorbed the difference as an objection, but nothing ever updated the
+  snapshot, so the comparison kept firing after the work was done. `reharm:pushing` row 5 fires on
+  borrowed drift and outranks synthesis, the prune sweep and momentum, and the autonomous loop takes
+  the cascade's first match — so one donor demotion would pin an unattended loop on integrity work
+  already finished. This is the long-run default, not an edge case: donors keep evolving, so a
+  `gen_at_mint` mismatch is where every scope holding a mashup ends up. Absorbing now **re-stamps the
+  entry** (§2) to the donor's state at absorption, and the mint-time values move to the E#### report,
+  where the history belongs. The snapshot is a baseline, not a history.
+- **`reharm:modal-interchange` finished lint-dirty by construction.** A fresh mashup only points
+  outward and `index.md` is not a node dir, so it had zero inbound links: steps 1–4 produced orphans —
+  which breaks `clean`, sending `pushing` to row 4, structural debt, right past the node just minted —
+  plus the donor wikilinks sitting in `unresolved_external`. Both are one line: the skill now wires the
+  mashup into the `supports:` of the scope-A claim it synthesizes, and declares the donor stems in the
+  scope `CLAUDE.md` allowlist so cross-scope citations read as deliberate (`allowed_external`).
+- **`wiki-lint.py` crashed on the malformed input it exists to report.** `full_depth_challenges:`
+  written with nothing after it parses as an empty **list**, not a string, and
+  `check_gate_full_depth`'s guard skipped only `None` and non-digit *strings* — so the list reached
+  `int([])` and took the whole run down. One malformed node therefore produced no report at all: no
+  `--json` for Phase E.3, nothing for `pushing` to rank, nothing for the loop to read. The frontmatter
+  check missed the same value for the same reason (`isinstance(val, str) and not val.isdigit()` — a
+  list is not a `str`), leaving it neither missing nor invalid. All three int keys now report an
+  unreadable count as a frontmatter error whatever shape it parsed into, and the gate check reads only
+  a readable digit string: an unreadable count is **not** a zero — reading it as one would report
+  `gate_without_full_depth` against a node that may well have earned its promotion, the same
+  "untracked is not zero" distinction §2 already makes for an absent key.
+- **The two scripts disagreed on bare `serves: D1, D2`.** `wiki-lint.py`'s `parse_list_entries` split
+  it on the comma; `boundary-score.py`'s `parse_list_key` returned the single ID `"D1, D2"`. The
+  failure was silent and the wrong way round — the linter called the node properly bound while it
+  dropped out of the frontier of *every* decision it named, so Phase B never targeted it and §5.1 read
+  it as unbound: depth `none`, prune candidate. Two scripts reading the same key now split it the same
+  way.
 
 ## [0.15.0] — 2026-07-27
 
